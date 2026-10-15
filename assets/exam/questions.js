@@ -1,4 +1,4 @@
-/* Demo question bank. Validate and replace questions before official use. */
+/* Biology question bank aligned to the listed WBCHSE Class 11 topics. */
 window.EXAM_QUESTIONS = [
 {chapter:"The Living World",q:"Which taxonomic category includes organisms with the greatest number of shared characteristics?",o:["Kingdom","Class","Species","Order"],a:2,ex:"Species is the basic unit of classification and generally contains the most similar organisms."},
 {chapter:"The Living World",q:"The scientific naming system using two words is called:",o:["Trinomial nomenclature","Binomial nomenclature","Polynomial nomenclature","Taxonomic hierarchy"],a:1,ex:"Binomial nomenclature uses a genus name and a specific epithet."},

@@ -597,8 +597,18 @@
     }
 
     if ($("#answerReview")) {
-      $("#answerReview").innerHTML =
-        "<p>Your result has been calculated by the server.</p>";
+      const review = resultData.answerReview || resultData.answer_review;
+      if (Array.isArray(review) && review.length) {
+        $("#answerReview").innerHTML = review.map((item, i) => {
+          const selected = item.selectedOption ?? item.selected_option;
+          const correct = item.correctOption ?? item.correct_option;
+          const options = Array.isArray(item.options) ? item.options : [];
+          return `<article class="rule" style="margin:10px 0"><b>Q${i + 1}. ${escapeHtml(item.question || item.question_text || "Question")}</b><p>Your answer: ${escapeHtml(selected == null ? "Not answered" : options[selected] ?? selected)}</p><p>Correct answer: ${escapeHtml(correct == null ? "Unavailable" : options[correct] ?? correct)}</p><p class="muted">${escapeHtml(item.explanation || "")}</p></article>`;
+        }).join("");
+      } else {
+        $("#answerReview").innerHTML =
+          "<p>Answer review is not available for this attempt.</p>";
+      }
     }
 
     if ($("#certificateLink")) {
@@ -635,14 +645,13 @@
     if (
       !state.student ||
       !resultData ||
-      percent < PASS_PERCENT
+      percent < PASS_PERCENT ||
+      !(resultData.certificateNo || resultData.certificate_no)
     ) {
       root.innerHTML = `
         <div class="card">
           <h2>Certificate unavailable</h2>
-          <p class="muted">
-            A certificate is available after passing the exam.
-          </p>
+          <p class="muted">A certificate can be issued only after the examination server confirms eligibility and assigns a certificate number.</p>
           <a class="btn" href="result.html">Back to result</a>
         </div>
       `;
@@ -672,7 +681,7 @@
 
     if ($("#certNo")) {
       $("#certNo").textContent =
-        resultData.certificateNo || "Pending";
+        resultData.certificateNo || resultData.certificate_no;
     }
 
     if ($("#certRoll")) {
@@ -687,52 +696,7 @@
     }
   }
 
-  // ---------------------------------------
-  // Admin placeholders
-  // ---------------------------------------
-
-  function adminLogin() {
-    const form = $("#adminLogin");
-    if (!form) return;
-
-    form.addEventListener("submit", (event) => {
-      event.preventDefault();
-
-      const message = $("#adminMsg");
-
-      if (message) {
-        message.textContent =
-          "Admin authentication is not connected yet.";
-
-        message.className = "error";
-      }
-    });
-  }
-
-  function adminDash() {
-    if (!$("#adminDashboard")) return;
-
-    if ($("#adminStats")) {
-      $("#adminStats").innerHTML = `
-        <div class="stat">
-          <strong>Backend</strong>
-          <span>
-            Supabase connected; admin dashboard pending
-          </span>
-        </div>
-      `;
-    }
-
-    if ($("#adminStudentRows")) {
-      $("#adminStudentRows").innerHTML = `
-        <tr>
-          <td colspan="5">
-            The live admin results dashboard has not been connected yet.
-          </td>
-        </tr>
-      `;
-    }
-  }
+  // Admin authentication and dashboard are handled by the dedicated admin modules.
 
   document.addEventListener("DOMContentLoaded", () => {
     entry();
@@ -740,7 +704,5 @@
     test();
     result();
     certificate();
-    adminLogin();
-    adminDash();
   });
 })();
