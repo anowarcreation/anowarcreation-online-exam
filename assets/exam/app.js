@@ -1,83 +1,746 @@
+
 (() => {
-const $ = (s,root=document)=>root.querySelector(s);
-const $$ = (s,root=document)=>[...root.querySelectorAll(s)];
-const KEY='ac_exam_demo_v1';
-const PASS=40;
-const getState=()=>{try{return JSON.parse(localStorage.getItem(KEY)||'{}')}catch{return {}}};
-const setState=v=>localStorage.setItem(KEY,JSON.stringify(v));
-const questions=()=>window.EXAM_QUESTIONS||[];
-const escapeHtml=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const makeId=()=>`AC-${new Date().getFullYear()}-${Math.random().toString(36).slice(2,8).toUpperCase()}`;
-function entry(){
- const form=$('#entryForm'); if(!form)return;
- form.addEventListener('submit',e=>{
-  e.preventDefault(); const name=$('#studentName').value.trim(),roll=$('#rollNumber').value.trim(),code=$('#examCode').value.trim();
-  $('#entryError').textContent='';
-  if(!name||!roll||!code){$('#entryError').textContent='Please complete all fields.';return}
-  if(code.toUpperCase()!=='BIO11-2026'){$('#entryError').textContent='Invalid demo exam code. Use BIO11-2026 for the sample exam.';return}
-  const s=getState();s.student={name,roll,code:code.toUpperCase()};s.started=false;s.answers={};s.flagged=[];s.startedAt=null;s.result=null;setState(s);
-  location.href='instructions.html';
- });
-}
-function instructions(){
- const btn=$('#startExam');if(!btn)return;
- const s=getState();if(!s.student){location.href='index.html';return}
- $('#studentGreeting').textContent=`Student: ${s.student.name} • Roll: ${s.student.roll}`;
- btn.addEventListener('click',()=>{const st=getState();st.started=true;st.startedAt=Date.now();st.answers={};st.flagged=[];st.result=null;setState(st);location.href='test.html'});
-}
-function calcResult(s){
- const qs=questions(),answers=s.answers||{};let correct=0,wrong=0,unanswered=0;const chapter={};
- qs.forEach((q,i)=>{const a=answers[i];let status='unanswered';if(a===undefined||a===null||a===''){unanswered++}else if(Number(a)===q.a){correct++;status='correct'}else{wrong++;status='wrong'}if(!chapter[q.chapter])chapter[q.chapter]={correct:0,wrong:0,unanswered:0,total:0};chapter[q.chapter][status]++;chapter[q.chapter].total++});
- const score=correct*4-wrong;return {correct,wrong,unanswered,score,max:qs.length*4,percentage:Math.max(0,score)/(qs.length*4)*100,passed:Math.max(0,score)/(qs.length*4)*100>=PASS,chapter,certificateNo:s.result?.certificateNo||makeId(),completedAt:new Date().toISOString()};
-}
-function test(){
- const root=$('#examApp');if(!root)return;
- let s=getState();if(!s.student||!s.started){location.href='index.html';return}
- const qs=questions();if(!qs.length){root.innerHTML='<p>Question bank unavailable.</p>';return}
- let index=0,remaining=Math.max(0,1800-Math.floor((Date.now()-(s.startedAt||Date.now()))/1000)),submitted=false;
- const save=()=>{s=getState();setState(s)};
- function render(){
-  s=getState();const q=qs[index],ans=s.answers||{},selected=ans[index];
-  $('#questionCount').textContent=`Question ${index+1} of ${qs.length}`;
-  $('#chapterName').textContent=q.chapter;
-  $('#questionText').textContent=q.q;
-  $('#options').innerHTML=q.o.map((op,i)=>`<label class="option ${String(selected)===String(i)?'selected':''}"><input type="radio" name="answer" value="${i}" ${String(selected)===String(i)?'checked':''}><span><b>${String.fromCharCode(65+i)}.</b> ${escapeHtml(op)}</span></label>`).join('');
-  $$('#options input').forEach(inp=>inp.addEventListener('change',()=>{const st=getState();st.answers=st.answers||{};st.answers[index]=Number(inp.value);setState(st);render()}));
-  $('#qnav').innerHTML=qs.map((_,i)=>`<button class="qnum ${i===index?'current':''} ${ans[i]!==undefined?'answered':''} ${(s.flagged||[]).includes(i)?'flagged':''}" data-q="${i}">${i+1}</button>`).join('');
-  $$('#qnav button').forEach(b=>b.addEventListener('click',()=>{index=Number(b.dataset.q);render()}));
-  $('#prevQ').disabled=index===0;$('#nextQ').textContent=index===qs.length-1?'Review & Submit':'Save & Next';
-  $('#answeredCount').textContent=Object.keys(ans).length;$('#flagBtn').textContent=(s.flagged||[]).includes(index)?'Unflag question':'Mark for review';
- }
- function clock(){const m=String(Math.floor(remaining/60)).padStart(2,'0'),sec=String(remaining%60).padStart(2,'0');$('#timer').textContent=`${m}:${sec}`;if(remaining<=300)$('#timer').classList.add('urgent');if(remaining<=0)submit(true);else remaining--}
- function submit(auto=false){
-  if(submitted)return;submitted=true;const st=getState();st.result=calcResult(st);st.result.autoSubmitted=auto;st.started=false;setState(st);location.href='result.html';
- }
- $('#prevQ').addEventListener('click',()=>{if(index>0){index--;render()}});
- $('#nextQ').addEventListener('click',()=>{if(index<qs.length-1){index++;render()}else{const unanswered=qs.length-Object.keys(getState().answers||{}).length; if(confirm(`Submit examination now? Unanswered: ${unanswered}`))submit(false)}});
- $('#flagBtn').addEventListener('click',()=>{const st=getState();st.flagged=st.flagged||[];st.flagged.includes(index)?st.flagged=st.flagged.filter(x=>x!==index):st.flagged.push(index);setState(st);render()});
- $('#submitExam').addEventListener('click',()=>{const st=getState(),unanswered=qs.length-Object.keys(st.answers||{}).length;if(confirm(`Are you sure you want to submit? ${unanswered} unanswered question(s).`))submit(false)});
- render();clock();setInterval(()=>{if(!submitted)clock()},1000);
-}
-function result(){
- const root=$('#resultApp');if(!root)return;const s=getState();if(!s.student||!s.result){root.innerHTML='<div class="card"><h2>No result found</h2><a class="btn" href="index.html">Start a demo exam</a></div>';return}
- const r=s.result;$('#resultStudent').textContent=s.student.name;$('#resultRoll').textContent=s.student.roll;$('#scoreValue').textContent=`${r.score}`;$('#scoreMax').textContent=`/ ${r.max}`;
- $('#passStatus').textContent=r.passed?'PASS':'NOT PASSED';$('#passStatus').className=r.passed?'pass':'fail';$('#resultDate').textContent=new Date(r.completedAt||Date.now()).toLocaleString();
- $('#stats').innerHTML=[['Correct',r.correct],['Incorrect',r.wrong],['Unanswered',r.unanswered],['Accuracy',`${Math.round((r.correct/(r.correct+r.wrong||1))*100)}%`]].map(x=>`<div class="stat"><strong>${x[1]}</strong><span>${x[0]}</span></div>`).join('');
- const chapters=Object.entries(r.chapter||{});$('#chapterResults').innerHTML=chapters.map(([name,v])=>`<div style="margin:16px 0"><div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:6px"><b>${escapeHtml(name)}</b><span class="muted small">${v.correct}/${v.total} correct</span></div><div class="bar"><span style="width:${v.correct/(v.total||1)*100}%"></span></div></div>`).join('');
- $('#answerReview').innerHTML=questions().map((q,i)=>{const a=(s.answers||{})[i],status=a===undefined?'unanswered':Number(a)===q.a?'correct':'wrong';return `<div class="review-item"><div class="qmeta">Q${i+1} · ${escapeHtml(q.chapter)} <span class="tag ${status}">${status.toUpperCase()}</span></div><div style="font-weight:800;margin:7px 0">${escapeHtml(q.q)}</div><div class="small">Your answer: ${a===undefined?'Not answered':escapeHtml(q.o[a])}</div><div class="small">Correct answer: <b>${escapeHtml(q.o[q.a])}</b></div><div class="small muted" style="margin-top:6px">${escapeHtml(q.ex)}</div></div>`}).join('');
- $('#certificateLink').href=`certificate.html`;
-}
-function certificate(){
- const root=$('#certificateApp');if(!root)return;const s=getState();if(!s.student||!s.result||!s.result.passed){root.innerHTML='<div class="card"><h2>Certificate unavailable</h2><p class="muted">In this demo, the certificate is available only after passing the test.</p><a class="btn" href="result.html">Back to result</a></div>';return}
- const r=s.result;$('#certName').textContent=s.student.name;$('#certExam').textContent='WBCHSE Class 11 Biology — NEET-Based Mock Test';$('#certScore').textContent=`${r.score} / ${r.max} (${Math.round(r.percentage)}%)`;$('#certDate').textContent=new Date(r.completedAt||Date.now()).toLocaleDateString('en-IN');$('#certNo').textContent=r.certificateNo;$('#certRoll').textContent=s.student.roll;
- $('#printCert').addEventListener('click',()=>window.print());
-}
-function adminLogin(){const f=$('#adminLogin');if(!f)return;f.addEventListener('submit',e=>{e.preventDefault();$('#adminMsg').textContent='Admin authentication is not connected yet. Configure Supabase Auth and secure server-side policies before enabling this panel.';$('#adminMsg').className='error'})}
-function adminDash(){
- const root=$('#adminDashboard');if(!root)return;
- const s=getState(),r=s.result?1:0;$('#adminStats').innerHTML=[['Demo attempts',r],['Question bank',questions().length],['Pass threshold',`${PASS}%`]].map(x=>`<div class="stat"><strong>${x[1]}</strong><span>${x[0]}</span></div>`).join('');
- $('#adminStudentRows').innerHTML=s.student&&s.result?`<tr><td>${escapeHtml(s.student.name)}</td><td>${escapeHtml(s.student.roll)}</td><td>${s.result.score}/${s.result.max}</td><td>${s.result.passed?'Pass':'Not passed'}</td><td>${new Date(s.result.completedAt).toLocaleString()}</td></tr>`:'<tr><td colspan="5">No demo result in this browser yet. Real records require Supabase backend.</td></tr>';
- const exp=$('#exportDemo');if(exp)exp.addEventListener('click',()=>{const blob=new Blob([JSON.stringify(s,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='anowar-creation-demo-record.json';a.click();URL.revokeObjectURL(a.href)});
-}
-document.addEventListener('DOMContentLoaded',()=>{entry();instructions();test();result();certificate();adminLogin();adminDash()});
+  "use strict";
+
+  const $ = (selector, root = document) =>
+    root.querySelector(selector);
+
+  const $$ = (selector, root = document) =>
+    [...root.querySelectorAll(selector)];
+
+  const STORAGE_KEY = "ac_exam_live_v1";
+  const PASS_PERCENT = 40;
+
+  // Browser-safe Supabase configuration.
+  // Never put a Supabase secret/service-role key in this file.
+  const SUPABASE_URL =
+    "https://tlsrvyqyhonnrlcdmlzo.supabase.co";
+
+  const SUPABASE_PUBLISHABLE_KEY =
+    "sb_publishable_znUuYPAf3U-FQoUtp4JRcA_kGZOIvoh";
+
+  const START_URL =
+    `${SUPABASE_URL}/functions/v1/exam-start`;
+
+  const SUBMIT_URL =
+    `${SUPABASE_URL}/functions/v1/exam-submit`;
+
+  function getState() {
+    try {
+      return JSON.parse(
+        localStorage.getItem(STORAGE_KEY) || "{}"
+      );
+    } catch {
+      return {};
+    }
+  }
+
+  function setState(state) {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify(state)
+    );
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "").replace(
+      /[&<>"']/g,
+      (char) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      })[char]
+    );
+  }
+
+  async function callFunction(url, body) {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": SUPABASE_PUBLISHABLE_KEY
+      },
+      body: JSON.stringify(body)
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(
+        data.error || `Request failed (${response.status})`
+      );
+    }
+
+    return data;
+  }
+
+  // ---------------------------------------
+  // Student entry page
+  // ---------------------------------------
+
+  function entry() {
+    const form = $("#entryForm");
+    if (!form) return;
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const errorBox = $("#entryError");
+      const button = form.querySelector(
+        'button[type="submit"]'
+      );
+
+      const studentName =
+        $("#studentName")?.value.trim() || "";
+
+      const rollNumber =
+        $("#rollNumber")?.value.trim() || "";
+
+      const examCode =
+        $("#examCode")?.value.trim() || "";
+
+      if (errorBox) errorBox.textContent = "";
+
+      if (!studentName || !rollNumber || !examCode) {
+        if (errorBox) {
+          errorBox.textContent =
+            "Please complete all fields.";
+        }
+        return;
+      }
+
+      const oldText = button?.textContent || "Start Exam";
+
+      if (button) {
+        button.disabled = true;
+        button.textContent = "Connecting to exam...";
+      }
+
+      try {
+        const data = await callFunction(START_URL, {
+          studentName,
+          rollNumber,
+          examCode
+        });
+
+        if (
+          !data.attempt?.id ||
+          !data.exam?.id ||
+          !Array.isArray(data.questions) ||
+          !data.questions.length
+        ) {
+          throw new Error(
+            "Exam data is incomplete. Contact the administrator."
+          );
+        }
+
+        setState({
+          student: {
+            name: studentName,
+            roll: rollNumber
+          },
+          attempt: data.attempt,
+          exam: data.exam,
+          questions: data.questions,
+          answers: {},
+          flagged: [],
+          started: false,
+          startedAt: null,
+          result: null
+        });
+
+        location.href = "instructions.html";
+
+      } catch (error) {
+        if (errorBox) {
+          errorBox.textContent =
+            error.message || "Unable to start the exam.";
+        }
+
+        if (button) {
+          button.disabled = false;
+          button.textContent = oldText;
+        }
+      }
+    });
+  }
+
+  // ---------------------------------------
+  // Instructions page
+  // ---------------------------------------
+
+  function instructions() {
+    const button = $("#startExam");
+    if (!button) return;
+
+    const state = getState();
+
+    if (
+      !state.student ||
+      !state.attempt?.id ||
+      !state.questions?.length
+    ) {
+      location.href = "index.html";
+      return;
+    }
+
+    const greeting = $("#studentGreeting");
+
+    if (greeting) {
+      greeting.textContent =
+        `Student: ${state.student.name} • Roll: ${state.student.roll}`;
+    }
+
+    button.addEventListener("click", () => {
+      const current = getState();
+
+      current.started = true;
+      current.startedAt = Date.now();
+      current.answers = current.answers || {};
+      current.flagged = current.flagged || [];
+
+      setState(current);
+      location.href = "test.html";
+    });
+  }
+
+  // ---------------------------------------
+  // Examination page
+  // ---------------------------------------
+
+  function test() {
+    if (!$("#examApp")) return;
+
+    let state = getState();
+
+    if (
+      !state.student ||
+      !state.attempt?.id ||
+      !state.started ||
+      !state.questions?.length
+    ) {
+      location.href = "index.html";
+      return;
+    }
+
+    const questions = state.questions;
+
+    const durationSeconds = Math.max(
+      60,
+      Number(state.exam?.duration_minutes || 30) * 60
+    );
+
+    let index = 0;
+
+    let remaining = Math.max(
+      0,
+      durationSeconds -
+      Math.floor(
+        (Date.now() - (state.startedAt || Date.now())) / 1000
+      )
+    );
+
+    let submitting = false;
+    let timerId;
+
+    function render() {
+      state = getState();
+
+      const question = questions[index];
+      if (!question) return;
+
+      const selected = state.answers?.[question.id];
+
+      $("#questionCount").textContent =
+        `Question ${index + 1} of ${questions.length}`;
+
+      $("#chapterName").textContent =
+        question.chapter || "";
+
+      $("#questionText").textContent =
+        question.question_text || "";
+
+      $("#options").innerHTML =
+        (question.options || []).map(
+          (option, optionIndex) => `
+            <label class="option ${
+              Number(selected) === optionIndex ? "selected" : ""
+            }">
+              <input
+                type="radio"
+                name="answer"
+                value="${optionIndex}"
+                ${
+                  Number(selected) === optionIndex
+                    ? "checked"
+                    : ""
+                }
+              >
+              <span>
+                <b>${String.fromCharCode(65 + optionIndex)}.</b>
+                ${escapeHtml(option)}
+              </span>
+            </label>
+          `
+        ).join("");
+
+      $$("#options input").forEach((input) => {
+        input.addEventListener("change", () => {
+          const current = getState();
+
+          current.answers = current.answers || {};
+
+          current.answers[question.id] =
+            Number(input.value);
+
+          setState(current);
+          render();
+        });
+      });
+
+      $("#qnav").innerHTML = questions.map(
+        (item, questionIndex) => `
+          <button
+            type="button"
+            class="qnum ${
+              questionIndex === index ? "current" : ""
+            } ${
+              state.answers?.[item.id] !== undefined
+                ? "answered"
+                : ""
+            } ${
+              (state.flagged || []).includes(questionIndex)
+                ? "flagged"
+                : ""
+            }"
+            data-q="${questionIndex}"
+          >
+            ${questionIndex + 1}
+          </button>
+        `
+      ).join("");
+
+      $$("#qnav button").forEach((button) => {
+        button.addEventListener("click", () => {
+          index = Number(button.dataset.q);
+          render();
+        });
+      });
+
+      $("#prevQ").disabled = index === 0;
+
+      $("#nextQ").textContent =
+        index === questions.length - 1
+          ? "Review & Submit"
+          : "Save & Next";
+
+      $("#answeredCount").textContent =
+        Object.keys(state.answers || {}).length;
+
+      $("#flagBtn").textContent =
+        (state.flagged || []).includes(index)
+          ? "Unmark review"
+          : "Mark for review";
+    }
+
+    async function submit(autoSubmitted = false) {
+      if (submitting) return;
+
+      submitting = true;
+      $("#submitExam").disabled = true;
+      $("#nextQ").disabled = true;
+
+      try {
+        const current = getState();
+
+        const answers = Object.entries(
+          current.answers || {}
+        ).map(([questionId, selectedOption]) => ({
+          questionId,
+          selectedOption
+        }));
+
+        const data = await callFunction(SUBMIT_URL, {
+          attemptId: current.attempt.id,
+          answers
+        });
+
+        if (!data.success || !data.result) {
+          throw new Error(
+            data.error || "The server did not confirm the result."
+          );
+        }
+
+        current.result = {
+          ...data.result,
+          autoSubmitted,
+          completedAt: new Date().toISOString()
+        };
+
+        current.started = false;
+
+        setState(current);
+
+        if (timerId) clearInterval(timerId);
+
+        location.href = "result.html";
+
+      } catch (error) {
+        submitting = false;
+
+        $("#submitExam").disabled = false;
+        $("#nextQ").disabled = false;
+
+        alert(
+          `Submission failed: ${
+            error.message || "Please try again."
+          }`
+        );
+      }
+    }
+
+    function clock() {
+      const timer = $("#timer");
+
+      if (timer) {
+        const minutes = Math.floor(remaining / 60);
+        const seconds = remaining % 60;
+
+        timer.textContent =
+          `${String(minutes).padStart(2, "0")}:` +
+          `${String(seconds).padStart(2, "0")}`;
+
+        if (remaining <= 300) {
+          timer.classList.add("urgent");
+        }
+      }
+
+      if (remaining <= 0) {
+        submit(true);
+      } else {
+        remaining -= 1;
+      }
+    }
+
+    $("#prevQ").addEventListener("click", () => {
+      if (index > 0) {
+        index -= 1;
+        render();
+      }
+    });
+
+    $("#nextQ").addEventListener("click", () => {
+      if (index < questions.length - 1) {
+        index += 1;
+        render();
+      } else {
+        const unanswered =
+          questions.length -
+          Object.keys(getState().answers || {}).length;
+
+        if (
+          confirm(
+            `Submit examination now? Unanswered: ${unanswered}`
+          )
+        ) {
+          submit(false);
+        }
+      }
+    });
+
+    $("#flagBtn").addEventListener("click", () => {
+      const current = getState();
+
+      current.flagged = current.flagged || [];
+
+      if (current.flagged.includes(index)) {
+        current.flagged = current.flagged.filter(
+          (item) => item !== index
+        );
+      } else {
+        current.flagged.push(index);
+      }
+
+      setState(current);
+      render();
+    });
+
+    $("#submitExam").addEventListener("click", () => {
+      const unanswered =
+        questions.length -
+        Object.keys(getState().answers || {}).length;
+
+      if (
+        confirm(
+          `Are you sure you want to submit? ${unanswered} unanswered question(s).`
+        )
+      ) {
+        submit(false);
+      }
+    });
+
+    render();
+    clock();
+
+    timerId = setInterval(() => {
+      if (!submitting) clock();
+    }, 1000);
+  }
+
+  // ---------------------------------------
+  // Result page
+  // ---------------------------------------
+
+  function result() {
+    const root = $("#resultApp");
+    if (!root) return;
+
+    const state = getState();
+
+    if (!state.student || !state.result) {
+      root.innerHTML = `
+        <div class="card">
+          <h2>No result found</h2>
+          <a class="btn" href="index.html">Start exam</a>
+        </div>
+      `;
+      return;
+    }
+
+    const resultData = state.result;
+
+    const total = Number(
+      resultData.totalQuestions ??
+      state.questions?.length ??
+      0
+    );
+
+    const max =
+      total * Number(state.exam?.positive_marks ?? 4);
+
+    const score = Number(resultData.score ?? 0);
+
+    const percent = max > 0
+      ? Math.max(0, score) / max * 100
+      : 0;
+
+    const passed = percent >= PASS_PERCENT;
+
+    if ($("#resultStudent")) {
+      $("#resultStudent").textContent = state.student.name;
+    }
+
+    if ($("#resultRoll")) {
+      $("#resultRoll").textContent = state.student.roll;
+    }
+
+    if ($("#scoreValue")) {
+      $("#scoreValue").textContent = String(score);
+    }
+
+    if ($("#scoreMax")) {
+      $("#scoreMax").textContent = `/ ${max}`;
+    }
+
+    if ($("#passStatus")) {
+      $("#passStatus").textContent =
+        passed ? "PASS" : "NOT PASSED";
+
+      $("#passStatus").className =
+        passed ? "pass" : "fail";
+    }
+
+    if ($("#resultDate")) {
+      $("#resultDate").textContent =
+        new Date(
+          resultData.completedAt || Date.now()
+        ).toLocaleString();
+    }
+
+    const stats = [
+      [
+        "Correct",
+        resultData.correctCount ??
+        resultData.correct_count ??
+        0
+      ],
+      [
+        "Incorrect",
+        resultData.wrongCount ??
+        resultData.wrong_count ??
+        0
+      ],
+      [
+        "Unanswered",
+        resultData.unansweredCount ??
+        resultData.unanswered_count ??
+        0
+      ],
+      ["Percentage", `${Math.round(percent)}%`]
+    ];
+
+    if ($("#stats")) {
+      $("#stats").innerHTML = stats.map(
+        ([label, value]) => `
+          <div class="stat">
+            <strong>${escapeHtml(value)}</strong>
+            <span>${escapeHtml(label)}</span>
+          </div>
+        `
+      ).join("");
+    }
+
+    if ($("#chapterResults")) {
+      $("#chapterResults").innerHTML = "";
+    }
+
+    if ($("#answerReview")) {
+      $("#answerReview").innerHTML =
+        "<p>Your result has been calculated by the server.</p>";
+    }
+
+    if ($("#certificateLink")) {
+      $("#certificateLink").href = "certificate.html";
+    }
+  }
+
+  // ---------------------------------------
+  // Certificate page
+  // ---------------------------------------
+
+  function certificate() {
+    const root = $("#certificateApp");
+    if (!root) return;
+
+    const state = getState();
+    const resultData = state.result;
+
+    const total = Number(
+      resultData?.totalQuestions ??
+      state.questions?.length ??
+      0
+    );
+
+    const max =
+      total * Number(state.exam?.positive_marks ?? 4);
+
+    const score = Number(resultData?.score ?? 0);
+
+    const percent = max > 0
+      ? Math.max(0, score) / max * 100
+      : 0;
+
+    if (
+      !state.student ||
+      !resultData ||
+      percent < PASS_PERCENT
+    ) {
+      root.innerHTML = `
+        <div class="card">
+          <h2>Certificate unavailable</h2>
+          <p class="muted">
+            A certificate is available after passing the exam.
+          </p>
+          <a class="btn" href="result.html">Back to result</a>
+        </div>
+      `;
+      return;
+    }
+
+    if ($("#certName")) {
+      $("#certName").textContent = state.student.name;
+    }
+
+    if ($("#certExam")) {
+      $("#certExam").textContent =
+        state.exam?.title || "Online Examination";
+    }
+
+    if ($("#certScore")) {
+      $("#certScore").textContent =
+        `${score} / ${max} (${Math.round(percent)}%)`;
+    }
+
+    if ($("#certDate")) {
+      $("#certDate").textContent =
+        new Date(
+          resultData.completedAt || Date.now()
+        ).toLocaleDateString("en-IN");
+    }
+
+    if ($("#certNo")) {
+      $("#certNo").textContent =
+        resultData.certificateNo || "Pending";
+    }
+
+    if ($("#certRoll")) {
+      $("#certRoll").textContent = state.student.roll;
+    }
+
+    if ($("#printCert")) {
+      $("#printCert").addEventListener(
+        "click",
+        () => window.print()
+      );
+    }
+  }
+
+  // ---------------------------------------
+  // Admin placeholders
+  // ---------------------------------------
+
+  function adminLogin() {
+    const form = $("#adminLogin");
+    if (!form) return;
+
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+
+      const message = $("#adminMsg");
+
+      if (message) {
+        message.textContent =
+          "Admin authentication is not connected yet.";
+
+        message.className = "error";
+      }
+    });
+  }
+
+  function adminDash() {
+    if (!$("#adminDashboard")) return;
+
+    if ($("#adminStats")) {
+      $("#adminStats").innerHTML = `
+        <div class="stat">
+          <strong>Backend</strong>
+          <span>
+            Supabase connected; admin dashboard pending
+          </span>
+        </div>
+      `;
+    }
+
+    if ($("#adminStudentRows")) {
+      $("#adminStudentRows").innerHTML = `
+        <tr>
+          <td colspan="5">
+            The live admin results dashboard has not been connected yet.
+          </td>
+        </tr>
+      `;
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    entry();
+    instructions();
+    test();
+    result();
+    certificate();
+    adminLogin();
+    adminDash();
+  });
 })();
