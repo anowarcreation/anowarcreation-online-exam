@@ -633,86 +633,32 @@
   function certificate() {
     const root = $("#certificateApp");
     if (!root) return;
-
     const state = getState();
     const resultData = state.result;
-
-    const total = Number(
-      resultData?.totalQuestions ??
-      state.questions?.length ??
-      0
-    );
-
-    const max =
-      total * Number(state.exam?.positive_marks ?? 4);
-
+    const total = Number(resultData?.totalQuestions ?? state.questions?.length ?? 0);
+    const max = total * Number(state.exam?.positive_marks ?? 4);
     const score = Number(resultData?.score ?? 0);
-
-    const percent = max > 0
-      ? Math.max(0, score) / max * 100
-      : 0;
-
-    if (
-      !state.student ||
-      !resultData ||
-      (String(resultData.result || "").toUpperCase() !== "PASS" && percent < Number(state.exam?.pass_percentage ?? PASS_PERCENT)) ||
-      !(resultData.certificateNo || resultData.certificate_no || resultData.certificate?.certificate_no || resultData.certificate?.certificateNo)
-    ) {
-      root.innerHTML = `
-        <div class="card">
-          <h2>Certificate unavailable</h2>
-          <p class="muted">A certificate can be issued only after the examination server confirms eligibility and assigns a certificate number.</p>
-          <a class="btn" href="result.html">Back to result</a>
-        </div>
-      `;
+    const percent = max > 0 ? Math.max(0, score) / max * 100 : 0;
+    const certificateNo = resultData?.certificateNo || resultData?.certificate_no || resultData?.certificate?.certificate_no || resultData?.certificate?.certificateNo;
+    const passed = String(resultData?.result || "").toUpperCase() === "PASS" || percent >= Number(state.exam?.pass_percentage ?? PASS_PERCENT);
+    if (!state.student || !resultData || !passed || !certificateNo) {
+      root.innerHTML = `<div class="card"><h2>Certificate unavailable</h2><p class="muted">A certificate is available only after the exam server confirms a passing result and issues a certificate number.</p><a class="btn" href="result.html">Back to result</a></div>`;
       return;
     }
-
-    if ($("#certName")) {
-      $("#certName").textContent = state.student.name;
-    }
-
-    if ($("#certExam")) {
-      $("#certExam").textContent =
-        state.exam?.title || "Online Examination";
-    }
-
-    if ($("#certScore")) {
-      $("#certScore").textContent =
-        `${score} / ${max} (${Math.round(percent)}%)`;
-    }
-
-    if ($("#certDate")) {
-      $("#certDate").textContent =
-        new Date(
-          resultData.completedAt || Date.now()
-        ).toLocaleDateString("en-IN");
-    }
-
-    const certificateNo = resultData.certificateNo || resultData.certificate_no || resultData.certificate?.certificate_no || resultData.certificate?.certificateNo;
-
-    if ($("#certNo")) {
-      $("#certNo").textContent = certificateNo;
-    }
-
-    if ($("#certRoll")) {
-      $("#certRoll").textContent = state.student.roll;
-    }
+    const put = (id, value) => { const el = $("#" + id); if (el) el.textContent = value ?? "—"; };
+    put("certName", state.student.name || "Student");
+    put("certNo", certificateNo);
+    put("certExam", state.exam?.title || state.exam?.subject || "Online Examination");
+    put("certCode", state.exam?.exam_code || state.exam?.code || state.exam?.examCode || "—");
+    put("certScore", `${score} / ${total}`);
+    put("certPercent", `${percent.toFixed(1)}%`);
+    put("certResult", "PASS");
+    put("certDate", new Date(resultData.completedAt || Date.now()).toLocaleDateString("en-GB", {day:"2-digit",month:"short",year:"numeric"}));
     const verifyUrl = `${location.origin}${location.pathname.replace(/certificate\.html$/, "verify-certificate.html")}?certificate=${encodeURIComponent(certificateNo)}`;
     const qr = $("#certQr");
-    const verifyLink = $("#verifyCertLink");
-    if (qr) {
-      qr.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(verifyUrl)}`;
-      qr.style.display = "block";
-    }
-    if (verifyLink) { verifyLink.href = verifyUrl; verifyLink.style.display = "inline-block"; }
-
-    if ($("#printCert")) {
-      $("#printCert").addEventListener(
-        "click",
-        () => window.print()
-      );
-    }
+    if (qr) { qr.src = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=0&data=${encodeURIComponent(verifyUrl)}`; qr.style.display = "block"; }
+    const verifyLink = $("#verifyCertLink"); if (verifyLink) verifyLink.href = verifyUrl;
+    const printButton = $("#printCert"); if (printButton && !printButton.dataset.bound) { printButton.dataset.bound = "1"; printButton.addEventListener("click", () => window.print()); }
   }
 
   // Admin authentication and dashboard are handled by the dedicated admin modules.
