@@ -526,7 +526,7 @@
       ? Math.max(0, score) / max * 100
       : 0;
 
-    const passed = percent >= PASS_PERCENT;
+    const passed = String(resultData.result || "").toUpperCase() === "PASS" || (!resultData.result && percent >= Number(state.exam?.pass_percentage ?? PASS_PERCENT));
 
     if ($("#resultStudent")) {
       $("#resultStudent").textContent = state.student.name;
@@ -603,7 +603,10 @@
           const selected = item.selectedOption ?? item.selected_option;
           const correct = item.correctOption ?? item.correct_option;
           const options = Array.isArray(item.options) ? item.options : [];
-          return `<article class="rule" style="margin:10px 0"><b>Q${i + 1}. ${escapeHtml(item.question || item.question_text || "Question")}</b><p>Your answer: ${escapeHtml(selected == null ? "Not answered" : options[selected] ?? selected)}</p><p>Correct answer: ${escapeHtml(correct == null ? "Unavailable" : options[correct] ?? correct)}</p><p class="muted">${escapeHtml(item.explanation || "")}</p></article>`;
+          const selectedText = selected == null ? "Not answered" : (options[selected] ?? selected);
+          const correctText = correct == null ? "Unavailable" : (options[correct] ?? correct);
+          const isCorrect = item.isCorrect === true || (selected != null && Number(selected) === Number(correct));
+          return `<article class="rule" style="margin:10px 0;padding:14px;border-left:4px solid ${isCorrect ? '#16803d' : '#c0392b'}"><b>Q${escapeHtml(item.number ?? (i + 1))}. ${escapeHtml(item.question || item.question_text || "Question")}</b>${item.chapter ? `<p class="muted small">${escapeHtml(item.chapter)}</p>` : ""}<p>Your answer: ${escapeHtml(selectedText)}</p><p>Correct answer: ${escapeHtml(correctText)}</p><p class="muted">${escapeHtml(item.explanation || "")}</p></article>`;
         }).join("");
       } else {
         $("#answerReview").innerHTML =
@@ -645,7 +648,7 @@
     if (
       !state.student ||
       !resultData ||
-      percent < PASS_PERCENT ||
+      (String(resultData.result || "").toUpperCase() !== "PASS" && percent < Number(state.exam?.pass_percentage ?? PASS_PERCENT)) ||
       !(resultData.certificateNo || resultData.certificate_no)
     ) {
       root.innerHTML = `
@@ -687,6 +690,15 @@
     if ($("#certRoll")) {
       $("#certRoll").textContent = state.student.roll;
     }
+    const certificateNo = resultData.certificateNo || resultData.certificate_no;
+    const verifyUrl = `${location.origin}${location.pathname.replace(/certificate\.html$/, "verify-certificate.html")}?certificate=${encodeURIComponent(certificateNo)}`;
+    const qr = $("#certQr");
+    const verifyLink = $("#verifyCertLink");
+    if (qr) {
+      qr.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(verifyUrl)}`;
+      qr.style.display = "block";
+    }
+    if (verifyLink) { verifyLink.href = verifyUrl; verifyLink.style.display = "inline-block"; }
 
     if ($("#printCert")) {
       $("#printCert").addEventListener(

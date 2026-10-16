@@ -19,7 +19,7 @@ Deno.serve(async (req) => {
     if (ee) throw ee;
     const deadline = new Date(attempt.started_at).getTime() + Number(exam.duration_minutes) * 60000;
     if (Date.now() > deadline + 60000) return respond({ error: "Exam time has expired." }, 403);
-    const { data: questions, error: qe } = await db.from("ac_exam_questions").select("id,correct_option").eq("exam_id", exam.id);
+    const { data: questions, error: qe } = await db.from("ac_exam_questions").select("id,correct_option,question_text,options,explanation,chapter,sort_order").eq("exam_id", exam.id).order("sort_order", { ascending: true });
     if (qe) throw qe; if (!questions?.length) return respond({ error: "No questions found." }, 409);
     const keyMap = new Map(questions.map(q => [q.id, Number(q.correct_option)]));
     const submitted = new Map<string, number>();
@@ -40,6 +40,18 @@ Deno.serve(async (req) => {
     });
     if (fe) throw fe;
     if (finalized?.already_submitted) return respond({ error: "This attempt has already been submitted." }, 409);
-    return respond({ success: true, result: { totalQuestions: questions.length, correctCount: correct, wrongCount: wrong, unansweredCount: unanswered, score, percentage: finalized?.percentage, result: finalized?.passed ? "PASS" : "FAIL", certificateNo: finalized?.certificate_no ?? null, certificateIssued: Boolean(finalized?.certificate_no) } });
+    const submittedMap = new Map([...submitted.entries()]);
+    const answerReview = questions.map((q, index) => ({
+      questionId: q.id,
+      question: q.question_text,
+      chapter: q.chapter ?? "",
+      options: Array.isArray(q.options) ? q.options : [],
+      selectedOption: submittedMap.has(q.id) ? submittedMap.get(q.id) : null,
+      correctOption: Number(q.correct_option),
+      isCorrect: submittedMap.has(q.id) && submittedMap.get(q.id) === Number(q.correct_option),
+      explanation: q.explanation ?? "",
+      number: index + 1
+    }));
+    return respond({ success: true, result: { totalQuestions: questions.length, correctCount: correct, wrongCount: wrong, unansweredCount: unanswered, score, percentage: finalized?.percentage, result: finalized?.passed ? "PASS" : "FAIL", certificateNo: finalized?.certificate_no ?? null, certificateIssued: Boolean(finalized?.certificate_no), answerReview } });
   } catch (error) { console.error("exam-submit failed:", error); return respond({ error: "Unable to submit exam." }, 500); }
 });

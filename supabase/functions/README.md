@@ -35,3 +35,14 @@ Use environment secrets for privileged keys. Never embed `service_role` in clien
 - `exam-admin/certificate-admin.html` uses the original uploaded logo and creates a QR code pointing to `exam/verify-certificate.html`.
 - `exam/verify-certificate.html` calls the `verify-certificate` Edge Function. That function must be implemented and deployed before QR verification can be considered live. Until then the page explicitly says verification is unavailable.
 - The deployed submit function must issue `certificate_no` only after server-side grading and passing eligibility checks. Do not create certificate numbers in the browser.
+
+
+## Deploy updated functions
+From a terminal with Supabase CLI linked to the correct project:
+
+```bash
+supabase functions deploy exam-submit
+supabase functions deploy verify-certificate
+```
+
+Before deploying, ensure the project secret `EXAM_SUPABASE_KEY` is set to the privileged server key. Never put it in client-side files. Also run `supabase/migration-auto-certificates-admin.sql` in SQL Editor before deploying.
