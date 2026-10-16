@@ -23,7 +23,7 @@
     return { max: Math.max(0, total * positive), pass };
   }
   function normalizeAttempt(a) {
-    const exam = a.exams || {};
+    const exam = a.ac_exams || {};
     const {max, pass} = getExamMeta(exam);
     const score = a.score == null ? null : Number(a.score);
     const percentage = score == null || !max ? null : Math.max(0, score) / max * 100;
@@ -44,8 +44,8 @@
   }
   async function loadData() {
     const [examsResult, attemptsResult] = await Promise.all([
-      client.from("exams").select("id,title,subject,duration_minutes,positive_marks,pass_percentage,is_published,created_at").order("created_at", {ascending:false}),
-      client.from("attempts").select("id,exam_id,student_name,roll_number,score,status,submitted_at,created_at,certificate_no,correct_count,wrong_count,unanswered_count,exams(title,subject,duration_minutes,positive_marks,pass_percentage)").order("created_at", {ascending:false}).limit(500)
+      client.from("ac_exams").select("id,title,subject,duration_minutes,positive_marks,negative_marks,pass_percentage,is_published,created_at").order("created_at", {ascending:false}),
+      client.from("ac_exam_attempts").select("id,exam_id,student_name,roll_number,score,status,submitted_at,started_at,created_at,certificate_no,correct_count,wrong_count,unanswered_count,ac_exams(title,subject,duration_minutes,positive_marks,negative_marks,pass_percentage)").order("created_at", {ascending:false}).limit(500)
     ]);
     if (examsResult.error) {
       message("examStatus", "Exam records could not be loaded. Check the exams table and admin RLS policies.");
@@ -63,7 +63,18 @@
       $("attemptCount").textContent = "—"; $("submittedCount").textContent = "—"; exportRows = []; attemptsCache = [];
       return;
     }
-    attemptsCache = (attemptsResult.data || []).map(normalizeAttempt);
+    const questionCountsResult = await client.from("ac_exam_questions").select("exam_id");
+    const questionCounts = {};
+    if (!questionCountsResult.error) for (const q of (questionCountsResult.data || [])) questionCounts[q.exam_id] = (questionCounts[q.exam_id] || 0) + 1;
+    attemptsCache = (attemptsResult.data || []).map(a => {
+      const normalized = normalizeAttempt(a);
+      const total = questionCounts[a.exam_id] || 0;
+      const max = total * Number((a.ac_exams || {}).positive_marks ?? 4);
+      const percentage = a.score == null || !max ? null : Math.max(0, Number(a.score)) / max * 100;
+      const pass = Number((a.ac_exams || {}).pass_percentage ?? 40);
+      const submitted = a.status === "submitted";
+      return {...normalized, max_marks:max, percentage, result:!submitted ? "IN PROGRESS" : percentage == null ? "RESULT PENDING" : percentage >= pass ? "PASS" : "FAIL"};
+    });
     const submitted = attemptsCache.filter(a => a.status === "submitted");
     $("attemptCount").textContent = String(attemptsCache.length);
     $("submittedCount").textContent = String(submitted.length);
