@@ -27,3 +27,11 @@ Implement and deploy these Supabase Edge Functions before using this as a live e
    - Only issue if the server-calculated result meets the current pass threshold.
 
 Use environment secrets for privileged keys. Never embed `service_role` in client-side JavaScript. Keep RLS enabled and test policies with a non-admin user.
+
+## Admin result and certificate behavior in this update
+
+- The Admin Dashboard now displays PASS/FAIL from the attempt score, exam maximum marks, and `pass_percentage` where those fields are available. The current UI assumes 30 questions when the database does not expose a question count; align this with the deployed exam configuration before production use.
+- A certificate preview link appears only for a submitted passing attempt with a server-issued `certificate_no`.
+- `exam-admin/certificate-admin.html` uses the original uploaded logo and creates a QR code pointing to `exam/verify-certificate.html`.
+- `exam/verify-certificate.html` calls the `verify-certificate` Edge Function. That function must be implemented and deployed before QR verification can be considered live. Until then the page explicitly says verification is unavailable.
+- The deployed submit function must issue `certificate_no` only after server-side grading and passing eligibility checks. Do not create certificate numbers in the browser.
