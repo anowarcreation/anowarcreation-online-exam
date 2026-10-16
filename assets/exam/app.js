@@ -373,8 +373,15 @@
           );
         }
 
+        const serverResult = data.result;
+        const cert = serverResult.certificate || serverResult.certificates || null;
         current.result = {
-          ...data.result,
+          ...serverResult,
+          // Normalize response shapes from deployed Edge Function versions.
+          answerReview: serverResult.answerReview || serverResult.answer_review || serverResult.review || [],
+          certificateNo: serverResult.certificateNo || serverResult.certificate_no || cert?.certificate_no || cert?.certificateNo || null,
+          certificateIssued: Boolean(serverResult.certificateIssued || serverResult.certificate_issued || serverResult.certificateNo || serverResult.certificate_no || cert?.certificate_no || cert?.certificateNo),
+          result: serverResult.result || serverResult.status || (serverResult.passed === true ? "PASS" : serverResult.passed === false ? "FAIL" : undefined),
           autoSubmitted,
           completedAt: new Date().toISOString()
         };
@@ -597,7 +604,7 @@
     }
 
     if ($("#answerReview")) {
-      const review = resultData.answerReview || resultData.answer_review;
+      const review = resultData.answerReview || resultData.answer_review || resultData.review;
       if (Array.isArray(review) && review.length) {
         $("#answerReview").innerHTML = review.map((item, i) => {
           const selected = item.selectedOption ?? item.selected_option;
@@ -649,7 +656,7 @@
       !state.student ||
       !resultData ||
       (String(resultData.result || "").toUpperCase() !== "PASS" && percent < Number(state.exam?.pass_percentage ?? PASS_PERCENT)) ||
-      !(resultData.certificateNo || resultData.certificate_no)
+      !(resultData.certificateNo || resultData.certificate_no || resultData.certificate?.certificate_no || resultData.certificate?.certificateNo)
     ) {
       root.innerHTML = `
         <div class="card">
@@ -682,15 +689,15 @@
         ).toLocaleDateString("en-IN");
     }
 
+    const certificateNo = resultData.certificateNo || resultData.certificate_no || resultData.certificate?.certificate_no || resultData.certificate?.certificateNo;
+
     if ($("#certNo")) {
-      $("#certNo").textContent =
-        resultData.certificateNo || resultData.certificate_no;
+      $("#certNo").textContent = certificateNo;
     }
 
     if ($("#certRoll")) {
       $("#certRoll").textContent = state.student.roll;
     }
-    const certificateNo = resultData.certificateNo || resultData.certificate_no;
     const verifyUrl = `${location.origin}${location.pathname.replace(/certificate\.html$/, "verify-certificate.html")}?certificate=${encodeURIComponent(certificateNo)}`;
     const qr = $("#certQr");
     const verifyLink = $("#verifyCertLink");

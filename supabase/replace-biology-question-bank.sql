@@ -1,10 +1,36 @@
--- REPLACE the existing Biology Demo Exam question bank with 30 updated NEET-style MCQs.
--- Run only after backup and confirm the exact exam title below. This deletes that exam's old questions only.
+-- SAFE VERSION: create a fresh published Biology exam with 30 updated NEET-style MCQs.
+-- Existing exam, questions, answers, attempts and certificates are retained for historical review.
+-- Back up the database first. The currently published Biology Demo Exam is archived (unpublished),
+-- and the same exam code hash is assigned to a new exam row containing the replacement question bank.
 begin;
-do $$ declare target_exam uuid; begin
-  select id into target_exam from public.ac_exams where title = 'Biology Demo Exam' order by created_at desc limit 1;
-  if target_exam is null then raise exception 'Biology Demo Exam not found; no questions changed'; end if;
-  delete from public.ac_exam_questions where exam_id = target_exam;
+do $$
+declare
+  old_exam public.ac_exams%rowtype;
+  target_exam uuid;
+  archived_hash text;
+begin
+  select * into old_exam
+  from public.ac_exams
+  where title = 'Biology Demo Exam' and is_published = true
+  order by created_at desc
+  limit 1
+  for update;
+
+  if old_exam.id is null then
+    raise exception 'Published Biology Demo Exam not found; no questions changed';
+  end if;
+
+  archived_hash := encode(digest(gen_random_uuid()::text, 'sha256'), 'hex');
+  update public.ac_exams
+    set is_published = false, exam_code_hash = archived_hash
+    where id = old_exam.id;
+
+  insert into public.ac_exams
+    (title, subject, exam_code_hash, duration_minutes, positive_marks, negative_marks, pass_percentage, is_published, created_at)
+  values
+    (old_exam.title, old_exam.subject, old_exam.exam_code_hash, old_exam.duration_minutes,
+     old_exam.positive_marks, old_exam.negative_marks, coalesce(old_exam.pass_percentage, 40), true, now())
+  returning id into target_exam;
   insert into public.ac_exam_questions (exam_id, chapter, question_text, options, correct_option, explanation, sort_order) values (target_exam, 'The Living World', 'A herbarium label records a plant as Mangifera indica L. In this name, ‘L.’ denotes:', '["The family name", "The author who validly published the name", "The locality of collection", "The order of the plant"]'::jsonb, 1, '‘L.’ is the standard abbreviation for Linnaeus, the author associated with the scientific name.', 1);
   insert into public.ac_exam_questions (exam_id, chapter, question_text, options, correct_option, explanation, sort_order) values (target_exam, 'The Living World', 'Which pair represents the correct taxonomic order from lower to higher category?', '["Family → Genus → Order", "Species → Genus → Family", "Class → Order → Phylum", "Genus → Species → Family"]'::jsonb, 1, 'The hierarchy proceeds species, genus, family, order, class, phylum/division and kingdom.', 2);
   insert into public.ac_exam_questions (exam_id, chapter, question_text, options, correct_option, explanation, sort_order) values (target_exam, 'Biological Classification', 'A prokaryote survives in highly saline water and has ether-linked membrane lipids. It most likely belongs to:', '["Eubacteria", "Archaea", "Fungi", "Protozoa"]'::jsonb, 1, 'Many archaea have distinctive ether-linked membrane lipids and include extremophiles.', 3);

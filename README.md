@@ -29,3 +29,7 @@ Do not treat a removed warning or a polished UI as proof that backend validation
 
 ## Deploy
 Upload the repository contents to the GitHub repository/branch used by GitHub Pages. Deploy the Supabase schema and Edge Functions separately. Verify admin RLS, exam code validation, scoring, result storage and certificate verification before using this for an official examination.
+
+
+## Consolidated certificate / answer-review update
+See `supabase/AUTO-CERTIFICATE-SETUP.md` for the exact deployment order. GitHub Pages deployment does not deploy Supabase Edge Functions; deploy `exam-submit` and `verify-certificate` separately after the SQL migration. The Biology question-bank SQL preserves the previous exam/questions/answers by archiving the old published exam and creating a fresh published exam with the same exam-code hash. Back up first.
