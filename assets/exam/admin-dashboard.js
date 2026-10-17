@@ -119,8 +119,8 @@
       const certReady = passed && Boolean(a.certificate_no);
       const resultPill = a.result === "PASS" ? '<span class="tag correct">PASS</span>' : a.result === "FAIL" ? '<span class="tag wrong">FAIL</span>' : `<span class="tag unanswered">${esc(a.result)}</span>`;
       const certificate = certReady ? `<a class="btn secondary admin-cert-link" href="certificate-admin.html?attempt=${encodeURIComponent(a.id)}">View certificate</a>` : passed ? '<span class="muted small">Awaiting server issue</span>' : '<span class="muted small">Not eligible</span>';
-      return `<tr><td>${esc(a.student_name)}</td><td>${esc(a.roll_number)}</td><td>${esc(a.exam_title)}</td><td>${a.score == null ? "—" : `${esc(a.score)} / ${esc(a.max_marks || "—")}`}</td><td>${a.percentage == null ? "—" : `${a.percentage.toFixed(1)}%`}</td><td>${resultPill}</td><td>${certificate}</td><td>${esc(a.submitted_at ? new Date(a.submitted_at).toLocaleString() : "Not submitted")}</td></tr>`;
-    }).join("") : '<tr><td colspan="8">No student attempts have been recorded yet.</td></tr>';
+      return `<tr><td><input class="attempt-select" type="checkbox" value="${esc(a.id)}" aria-label="Select attempt ${esc(a.id)}"></td><td>${esc(a.student_name)}</td><td>${esc(a.roll_number)}</td><td>${esc(a.exam_title)}</td><td>${a.score == null ? "—" : `${esc(a.score)} / ${esc(a.max_marks || "—")}`}</td><td>${a.percentage == null ? "—" : `${a.percentage.toFixed(1)}%`}</td><td>${resultPill}</td><td>${certificate}</td><td>${esc(a.submitted_at ? new Date(a.submitted_at).toLocaleString() : "Not submitted")}</td></tr>`;
+    }).join("") : '<tr><td colspan="9">No student attempts have been recorded yet.</td></tr>';
     message("resultStatus", `${attemptsCache.length} attempt(s) loaded; ${submitted.length} submitted. Pass/fail is calculated from the exam pass threshold and available marks data.`);
   }
   $("controlExam")?.addEventListener("change", e => fillExamControl(e.target.value));
@@ -139,6 +139,33 @@
     } catch (err) { message("controlStatus", `Could not save settings: ${err.message || "check SQL migration and admin update RLS policy"}`); }
     finally { button.disabled = false; }
   });
+
+  function selectedAttemptIds() { return [...document.querySelectorAll(".attempt-select:checked")].map(x => x.value); }
+  $("selectAllAttempts")?.addEventListener("change", e => { document.querySelectorAll(".attempt-select").forEach(x => x.checked = e.target.checked); });
+  async function eraseHistory(ids, all=false) {
+    const phrase = all ? "ERASE ALL" : "ERASE SELECTED";
+    const typed = prompt(`WARNING: this permanently deletes ${all ? "ALL test attempts" : `${ids.length} selected test attempt(s)`}, their submitted answers, and associated certificates. Student registrations, Student IDs, exams and questions remain.
+
+Type ${phrase} to confirm.`);
+    if (typed !== phrase) { message("eraseStatus", "Erase cancelled. No records were changed."); return; }
+    if (!confirm("Final confirmation: this action cannot be undone. Continue?")) { message("eraseStatus", "Erase cancelled. No records were changed."); return; }
+    const {data:{session}} = await client.auth.getSession();
+    if (!session?.access_token) { message("eraseStatus", "Admin session expired. Sign in again."); return; }
+    const btns = [$("eraseSelected"), $("eraseAll")].filter(Boolean); btns.forEach(b => b.disabled = true);
+    message("eraseStatus", "Deleting test history securely…");
+    try {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/admin-erase-history`, {method:"POST", headers:{"Content-Type":"application/json", "Authorization":`Bearer ${session.access_token}`, "apikey":SUPABASE_KEY}, body:JSON.stringify({all, attemptIds:ids})});
+      const result = await response.json().catch(()=>({}));
+      if (!response.ok) throw new Error(result.error || `Request failed (${response.status})`);
+      message("eraseStatus", `Deleted ${result.deletedAttempts} attempt(s), ${result.deletedAnswers} answer(s), and ${result.deletedCertificates} certificate record(s). Student registrations and question bank were preserved.`);
+      if ($("selectAllAttempts")) $("selectAllAttempts").checked = false;
+      await loadData();
+    } catch (err) { message("eraseStatus", `Could not erase history: ${err.message || "check Edge Function deployment and admin permissions"}`); }
+    finally { btns.forEach(b => b.disabled = false); }
+  }
+  $("eraseSelected")?.addEventListener("click", () => { const ids = selectedAttemptIds(); if (!ids.length) { message("eraseStatus", "Select at least one attempt first."); return; } eraseHistory(ids, false); });
+  $("eraseAll")?.addEventListener("click", () => eraseHistory([], true));
+
   $("adminLogout")?.addEventListener("click", async () => { await client?.auth.signOut(); location.replace("index.html"); });
   $("exportResults")?.addEventListener("click", () => csvDownload(exportRows));
   init().catch(() => { message("examStatus", "Unable to load the dashboard. Please sign in again or check the database permissions."); });

@@ -15,3 +15,5 @@ button,.btn{background:linear-gradient(135deg,var(--blue),var(--blue2))!importan
 .footer{border-top:1px solid var(--line);margin-top:28px;padding:20px 0}.pill{background:#172b48!important;color:#a8ccff!important;border:1px solid #29476d}
 a{color:#80b2ff}.card a{font-weight:600}
 @media(max-width:680px){.card{padding:16px}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.topbar{gap:10px}.pagehead{padding-top:20px}}
+
+.danger-button{background:linear-gradient(135deg,#e34b5f,#a91e38)!important;border:1px solid #ff7585!important;color:#fff!important}.danger-button:disabled{opacity:.55;cursor:wait}.attempt-select,#selectAllAttempts{width:18px;height:18px;accent-color:#3984ff;cursor:pointer}
