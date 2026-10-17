@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
     if (req.method === "GET") {
       const { data: exams, error } = await db.from("ac_exams")
         .select("id,title,subject,duration_minutes,positive_marks,negative_marks,pass_percentage,is_published,created_at")
-        .order("is_published", { ascending: false }).order("created_at", { ascending: false }).limit(1);
+        .order("created_at", { ascending: false }).limit(1);
       if (error) throw error;
       const exam = exams?.[0];
       if (!exam) return respond({ available: false });
@@ -38,6 +38,16 @@ Deno.serve(async (req) => {
     if (ee) throw ee;
     if (!exam) return respond({ error: "Invalid exam code." }, 401);
     if (!exam.is_published) return respond({ error: "This exam is currently closed. New responses are not being accepted." }, 403);
+    // Validate the permanent Student ID against the server-side registry. A valid exam
+    // code alone must never allow an arbitrary ID to start an attempt.
+    const { data: registeredStudent, error: studentError } = await db.from("ac_student_registry")
+      .select("student_id,full_name")
+      .eq("student_id", studentId)
+      .maybeSingle();
+    if (studentError) throw studentError;
+    if (!registeredStudent) return respond({ error: "Student ID not found. Register first or use Find Student ID." }, 401);
+    if (registeredStudent.full_name.trim().toLocaleLowerCase() !== studentName.toLocaleLowerCase())
+      return respond({ error: "Student name does not match this Student ID." }, 401);
     const now = new Date();
     const { data: questions, error: qe } = await db.from("ac_exam_questions").select("id,chapter,question_text,options,sort_order").eq("exam_id", exam.id).order("sort_order", { ascending: true });
     if (qe) throw qe;
