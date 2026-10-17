@@ -7,6 +7,7 @@
   const esc = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   let exportRows = [];
   let attemptsCache = [];
+  let examsCache = [];
   function message(id, text) { const el = $(id); if (el) el.textContent = text; }
   function csvDownload(rows) {
     if (!rows.length) { message("resultStatus", "There are no submitted result records to export."); return; }
@@ -32,6 +33,24 @@
     const certNo = a.certificate_no || a.certificates?.certificate_no || "";
     return {...a, exam_title:exam.title || "—", max_marks:max, percentage, result, certificate_no:certNo};
   }
+  function populateExamControl(exams) {
+    const select = $("controlExam"); if (!select) return;
+    select.innerHTML = exams.length ? exams.map(e => `<option value="${esc(e.id)}">${esc(e.title)} (${e.is_published ? "Open" : "Closed"})</option>`).join("") : '<option value="">No exams found</option>';
+    if (exams.length) fillExamControl(exams[0].id);
+  }
+  function fillExamControl(id) {
+    const e = examsCache.find(x => x.id === id); if (!e) return;
+    $("controlCode").value = e.exam_code || "";
+    $("controlDuration").value = e.duration_minutes || 30;
+    $("controlInstructions").value = e.instructions || "";
+    $("controlPublished").checked = Boolean(e.is_published);
+    message("controlStatus", "Changes are not saved yet.");
+  }
+  async function sha256(text) {
+    const bytes = new TextEncoder().encode(text.trim());
+    const hash = await crypto.subtle.digest("SHA-256", bytes);
+    return [...new Uint8Array(hash)].map(b => b.toString(16).padStart(2,"0")).join("");
+  }
   async function init() {
     if (!client) { message("examStatus", "Unable to load the authentication service. Refresh the page and try again."); return; }
     const { data: { session }, error: sessionError } = await client.auth.getSession();
@@ -44,7 +63,7 @@
   }
   async function loadData() {
     const [examsResult, attemptsResult] = await Promise.all([
-      client.from("ac_exams").select("id,title,subject,duration_minutes,positive_marks,negative_marks,pass_percentage,is_published,created_at").order("created_at", {ascending:false}),
+      client.from("ac_exams").select("id,title,subject,exam_code,duration_minutes,instructions,positive_marks,negative_marks,pass_percentage,is_published,created_at").order("created_at", {ascending:false}),
       client.from("ac_exam_attempts").select("id,exam_id,student_name,roll_number,score,status,submitted_at,started_at,created_at,certificate_no,correct_count,wrong_count,unanswered_count,ac_exams(title,subject,duration_minutes,positive_marks,negative_marks,pass_percentage)").order("created_at", {ascending:false}).limit(500)
     ]);
     if (examsResult.error) {
@@ -53,8 +72,9 @@
       $("examCount").textContent = "—";
     } else {
       const exams = examsResult.data || [];
+      examsCache = exams; populateExamControl(exams);
       $("examCount").textContent = String(exams.length);
-      $("adminExamRows").innerHTML = exams.length ? exams.map(e => `<tr><td>${esc(e.title)}</td><td>${esc(e.subject)}</td><td>Stored securely</td><td>${esc(e.duration_minutes)} min</td><td>${e.is_published ? "Published" : "Unpublished"}</td></tr>`).join("") : '<tr><td colspan="5">No examinations have been created yet.</td></tr>';
+      $("adminExamRows").innerHTML = exams.length ? exams.map(e => `<tr><td>${esc(e.title)}</td><td>${esc(e.subject)}</td><td>${e.exam_code ? esc(e.exam_code) : "Set in control panel"}</td><td>${esc(e.duration_minutes)} min</td><td>${e.is_published ? "Accepting attempts" : "Closed"}</td></tr>`).join("") : '<tr><td colspan="5">No examinations have been created yet.</td></tr>';
       message("examStatus", exams.length ? `${exams.length} examination record(s) loaded.` : "No examination records are available yet.");
     }
     if (attemptsResult.error) {
@@ -88,6 +108,22 @@
     }).join("") : '<tr><td colspan="8">No student attempts have been recorded yet.</td></tr>';
     message("resultStatus", `${attemptsCache.length} attempt(s) loaded; ${submitted.length} submitted. Pass/fail is calculated from the exam pass threshold and available marks data.`);
   }
+  $("controlExam")?.addEventListener("change", e => fillExamControl(e.target.value));
+  $("examControlForm")?.addEventListener("submit", async e => {
+    e.preventDefault();
+    const id = $("controlExam").value, code = $("controlCode").value.trim(), duration = Number($("controlDuration").value);
+    if (!id || !code || !Number.isInteger(duration) || duration < 1 || duration > 600) { message("controlStatus", "Enter a valid exam code and duration (1–600 minutes)."); return; }
+    const button = e.currentTarget.querySelector('button[type="submit"]'); button.disabled = true; message("controlStatus", "Saving exam settings…");
+    try {
+      const codeHash = await sha256(code);
+      const payload = { exam_code: code, exam_code_hash: codeHash, duration_minutes: duration, instructions: $("controlInstructions").value.trim(), is_published: $("controlPublished").checked };
+      const { error } = await client.from("ac_exams").update(payload).eq("id", id);
+      if (error) throw error;
+      message("controlStatus", "Saved. Refreshing dashboard…"); await loadData(); fillExamControl(id);
+      message("controlStatus", "Saved. Ensure the exam-start Edge Function validates is_published and uses the same SHA-256 exam code hash.");
+    } catch (err) { message("controlStatus", `Could not save settings: ${err.message || "check SQL migration and admin update RLS policy"}`); }
+    finally { button.disabled = false; }
+  });
   $("adminLogout")?.addEventListener("click", async () => { await client?.auth.signOut(); location.replace("index.html"); });
   $("exportResults")?.addEventListener("click", () => csvDownload(exportRows));
   init().catch(() => { message("examStatus", "Unable to load the dashboard. Please sign in again or check the database permissions."); });

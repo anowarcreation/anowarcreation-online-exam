@@ -192,6 +192,16 @@
       greeting.textContent =
         `Student: ${state.student.name} • Roll: ${state.student.roll}`;
     }
+    const duration = Number(state.exam?.duration_minutes || 30);
+    const totalQuestions = state.questions.length;
+    const setText = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
+    setText("examDuration", `${duration} minutes`);
+    setText("examQuestionCount", `${totalQuestions} MCQs`);
+    setText("examMaximumMarks", String(totalQuestions * Number(state.exam?.positive_marks ?? 4)));
+    setText("examPositiveMarks", `+${Number(state.exam?.positive_marks ?? 4)} marks`);
+    setText("examNegativeMarks", `−${Number(state.exam?.negative_marks ?? 1)} mark${Number(state.exam?.negative_marks ?? 1) === 1 ? "" : "s"}`);
+    setText("examPassPercentage", `${Number(state.exam?.pass_percentage ?? PASS_PERCENT)}%`);
+    if (state.exam?.instructions) { const box = document.getElementById("adminExamInstructions"); if (box) { box.hidden = false; box.textContent = state.exam.instructions; } }
 
     button.addEventListener("click", () => {
       const current = getState();
