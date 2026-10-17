@@ -87,14 +87,18 @@
     // Pull the latest duration/open state from the same server used by Admin controls.
     const overview = async () => {
       try {
-        const response = await fetch(START_URL, { method: "GET", headers: { "apikey": SUPABASE_PUBLISHABLE_KEY } });
+        const response = await fetch(`${START_URL}?_=${Date.now()}`, {
+          method: "GET",
+          cache: "no-store",
+          headers: { "apikey": SUPABASE_PUBLISHABLE_KEY, "Cache-Control": "no-cache" }
+        });
         if (!response.ok) return;
         const data = await response.json();
         if (!data.available || !data.exam) return;
         const exam = data.exam;
         const stats = document.querySelectorAll(".hero .stats .stat");
         if (stats[0]) { const strong = stats[0].querySelector("strong"); if (strong) strong.textContent = String(exam.question_count ?? 0); }
-        if (stats[1]) { const strong = stats[1].querySelector("strong"); if (strong) strong.textContent = `${Number(exam.duration_minutes || 30)} min`; }
+        if (stats[1]) { const strong = stats[1].querySelector("strong"); if (strong) strong.textContent = `${Math.max(1, Number(exam.duration_minutes || 30))} min`; }
         if (stats[2]) { const strong = stats[2].querySelector("strong"); if (strong) strong.textContent = String(Number(exam.question_count || 0) * Number(exam.positive_marks || 4)); }
         let closed = document.getElementById("examClosedNotice");
         if (!exam.is_published) {
