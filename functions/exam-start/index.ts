@@ -29,9 +29,10 @@ Deno.serve(async (req) => {
     if (req.method !== "POST") return respond({ error: "GET or POST requests only." }, 405);
     const body = await req.json();
     const studentName = String(body.studentName ?? "").trim().slice(0, 100);
-    const rollNumber = String(body.rollNumber ?? "").trim().slice(0, 40);
+    const studentId = String(body.studentId ?? body.rollNumber ?? "").trim().slice(0, 40);
+    const rollNumber = studentId;
     const examCode = String(body.examCode ?? "").trim();
-    if (!studentName || !rollNumber || !examCode) return respond({ error: "Enter your name, roll number, and exam code." }, 400);
+    if (!studentName || !studentId || !examCode) return respond({ error: "Enter your name, Student ID, and exam code." }, 400);
     const hash = await sha256(examCode);
     const { data: exam, error: ee } = await db.from("ac_exams").select("id,title,subject,exam_code,duration_minutes,positive_marks,negative_marks,pass_percentage,is_published,instructions,exam_code_hash").eq("exam_code_hash", hash).maybeSingle();
     if (ee) throw ee;

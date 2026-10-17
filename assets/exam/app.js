@@ -124,15 +124,15 @@
       const studentName =
         $("#studentName")?.value.trim() || "";
 
-      const rollNumber =
-        $("#rollNumber")?.value.trim() || "";
+      const studentId =
+        $("#studentId")?.value.trim() || "";
 
       const examCode =
         $("#examCode")?.value.trim() || "";
 
       if (errorBox) errorBox.textContent = "";
 
-      if (!studentName || !rollNumber || !examCode) {
+      if (!studentName || !studentId || !examCode) {
         if (errorBox) {
           errorBox.textContent =
             "Please complete all fields.";
@@ -150,7 +150,8 @@
       try {
         const data = await callFunction(START_URL, {
           studentName,
-          rollNumber,
+          studentId,
+          rollNumber: studentId,
           examCode
         });
 
@@ -168,7 +169,8 @@
         setState({
           student: {
             name: studentName,
-            roll: rollNumber
+            roll: studentId,
+            studentId
           },
           attempt: data.attempt,
           exam: data.exam,
