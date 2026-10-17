@@ -16,3 +16,12 @@ The instructions page displays duration, question count, maximum marks, positive
 
 ## 5. Important limitation
 Closing an exam prevents *new* attempts when the deployed `exam-start` function is updated. Existing in-progress attempts are not force-submitted by this change. Duration changes apply to new attempts; for already-started attempts the submit function may use the current duration, depending on the deployed version.
+
+
+## Student duration and open/close switch update
+
+This update makes the student landing-page duration/max-marks cards load from the latest exam record through `GET /functions/v1/exam-start`. The same function returns the validated exam code with the exam-start payload so certificates can display it. The server still rejects new starts when `is_published = false`.
+
+Admin dashboard now has a visible ON/OFF switch; click it and then click **Save exam settings**. The switch only takes effect after saving. Deploy the updated `supabase/functions/exam-start/index.ts` function as `exam-start` after the migration has been applied.
+
+Certificate score denominator is now maximum marks (`question_count × positive_marks`), so a 30-question, +4 exam displays scores such as `60 / 120`, not `60 / 30`.

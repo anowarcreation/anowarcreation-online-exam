@@ -44,8 +44,23 @@
     $("controlDuration").value = e.duration_minutes || 30;
     $("controlInstructions").value = e.instructions || "";
     $("controlPublished").checked = Boolean(e.is_published);
+    syncPublishedToggle();
     message("controlStatus", "Changes are not saved yet.");
   }
+  function syncPublishedToggle() {
+    const checkbox = $("controlPublished"), button = $("controlPublishedToggle"), label = $("controlPublishedLabel");
+    if (!checkbox || !button) return;
+    const on = checkbox.checked;
+    button.classList.toggle("on", on); button.classList.toggle("off", !on);
+    button.textContent = on ? "ON · Accepting attempts" : "OFF · Closed";
+    button.setAttribute("aria-pressed", String(on));
+    if (label) label.textContent = on ? "Students can start new attempts." : "New attempts are blocked.";
+  }
+  $("controlPublishedToggle")?.addEventListener("click", () => {
+    const checkbox = $("controlPublished"); if (checkbox) checkbox.checked = !checkbox.checked;
+    syncPublishedToggle();
+    message("controlStatus", "Toggle changed. Click Save exam settings to apply it.");
+  });
   async function sha256(text) {
     const bytes = new TextEncoder().encode(text.trim());
     const hash = await crypto.subtle.digest("SHA-256", bytes);
@@ -120,7 +135,7 @@
       const { error } = await client.from("ac_exams").update(payload).eq("id", id);
       if (error) throw error;
       message("controlStatus", "Saved. Refreshing dashboard…"); await loadData(); fillExamControl(id);
-      message("controlStatus", "Saved. Ensure the exam-start Edge Function validates is_published and uses the same SHA-256 exam code hash.");
+      message("controlStatus", "Saved. New attempts and student duration overview now use these settings after the updated exam-start function is deployed.");
     } catch (err) { message("controlStatus", `Could not save settings: ${err.message || "check SQL migration and admin update RLS policy"}`); }
     finally { button.disabled = false; }
   });

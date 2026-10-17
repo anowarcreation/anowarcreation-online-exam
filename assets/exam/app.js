@@ -84,6 +84,31 @@
     const form = $("#entryForm");
     if (!form) return;
 
+    // Pull the latest duration/open state from the same server used by Admin controls.
+    const overview = async () => {
+      try {
+        const response = await fetch(START_URL, { method: "GET", headers: { "apikey": SUPABASE_PUBLISHABLE_KEY } });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (!data.available || !data.exam) return;
+        const exam = data.exam;
+        const stats = document.querySelectorAll(".hero .stats .stat");
+        if (stats[0]) { const strong = stats[0].querySelector("strong"); if (strong) strong.textContent = String(exam.question_count ?? 0); }
+        if (stats[1]) { const strong = stats[1].querySelector("strong"); if (strong) strong.textContent = `${Number(exam.duration_minutes || 30)} min`; }
+        if (stats[2]) { const strong = stats[2].querySelector("strong"); if (strong) strong.textContent = String(Number(exam.question_count || 0) * Number(exam.positive_marks || 4)); }
+        let closed = document.getElementById("examClosedNotice");
+        if (!exam.is_published) {
+          if (!closed) { closed = document.createElement("p"); closed.id = "examClosedNotice"; closed.className = "note"; const card = document.querySelector(".entry-card"); if (card) card.insertBefore(closed, card.firstChild); }
+          if (closed) closed.textContent = "This examination is currently closed. New exam attempts are not being accepted.";
+          const submit = form.querySelector('button[type="submit"]'); if (submit) submit.disabled = true;
+        } else {
+          closed?.remove();
+          const submit = form.querySelector('button[type="submit"]'); if (submit) submit.disabled = false;
+        }
+      } catch (_) { /* Keep the static fallback if the overview endpoint is temporarily unavailable. */ }
+    };
+    overview();
+
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
 
@@ -660,7 +685,7 @@
     put("certNo", certificateNo);
     put("certExam", state.exam?.title || state.exam?.subject || "Online Examination");
     put("certCode", state.exam?.exam_code || state.exam?.code || state.exam?.examCode || "—");
-    put("certScore", `${score} / ${total}`);
+    put("certScore", `${score} / ${max}`);
     put("certPercent", `${percent.toFixed(1)}%`);
     put("certResult", "PASS");
     put("certDate", new Date(resultData.completedAt || Date.now()).toLocaleDateString("en-GB", {day:"2-digit",month:"short",year:"numeric"}));
