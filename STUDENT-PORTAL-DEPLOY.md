@@ -6,7 +6,7 @@ This package adds the Student Portal UI, permanent Student ID registration/recov
 1. Back up your repository branch and Supabase database first.
 2. Run `student-portal-migration.sql` in the Supabase SQL Editor. It creates only `ac_student_registry`; it does not delete exam data.
 3. Deploy the new Supabase Edge Function `student-portal` from `functions/student-portal/index.ts` (or the mirrored `supabase/functions/student-portal/index.ts`). It uses the existing server-side `SUPABASE_URL` and `EXAM_SUPABASE_KEY` secrets. Never put the service-role key in browser JavaScript.
-4. Deploy the updated static files to the intended GitHub Pages branch.
+4. Deploy the updated static files to the intended GitHub Pages branch. The `/exam/` entry now opens the Student Portal dashboard; the actual exam-entry form is at `/exam/enter.html`.
 5. Test registration, ID recovery, admit-card printing, exam entry, and result lookup with a test student before public release.
 
 ## Important compatibility note
