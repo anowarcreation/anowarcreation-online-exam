@@ -12,3 +12,17 @@
 /* Student portal fixes */
 .find-id-link{display:inline-block;color:#0866f5;font-weight:800;margin-top:10px;text-decoration:underline;text-underline-offset:3px}.find-id-nested{margin-top:14px}.printable-document{background:#fff!important;color:#14233b!important}.print-registration .wrap>*:not(.portal-grid),.print-registration .portal-grid>.card:not(:has(#registrationReceipt)),.print-registration #registerForm>*:not(#registrationReceipt),.print-admit .wrap>*:not(.portal-grid),.print-admit .portal-grid>.card:not(:has(#admitResult)),.print-admit #admitForm,.print-admit #admitResult .admit-actions{display:none!important}.print-registration #registrationReceipt,.print-admit #admitResult{display:block!important;position:absolute;left:0;top:0;width:100%;margin:0;padding:28px;border:2px solid #174a8d;border-radius:0;box-shadow:none;background:#fff!important;color:#14233b!important}.print-registration #registrationReceipt h3,.print-admit #admitResult h3{color:#174a8d;text-align:center}.print-registration .portal-grid,.print-admit .portal-grid{display:block!important}.print-registration .portal-grid>.card,.print-admit .portal-grid>.card{display:none!important}.print-registration .portal-grid>.card:has(#registerForm),.print-admit .portal-grid>.card:has(#admitResult){display:block!important;border:0!important;box-shadow:none!important;padding:0!important}.print-registration #registerForm,.print-admit #admitForm{display:none!important}
 @media print{body.print-registration .topbar,body.print-registration .footer,body.print-registration .pagehead,body.print-admit .topbar,body.print-admit .footer,body.print-admit .pagehead{display:none!important}}
+
+/* Click-to-open student service cards: keep every form closed on initial load. */
+.portal-grid>.clickable-service{position:relative;cursor:pointer;transition:border-color .15s,transform .15s,box-shadow .15s;min-height:205px}
+.portal-grid>.clickable-service:hover{border-color:#8bbcff;transform:translateY(-2px)}
+.portal-grid>.clickable-service:focus-visible{outline:3px solid #8bbcff;outline-offset:3px}
+.portal-grid>.clickable-service:not(.service-open) form,.portal-grid>.clickable-service:not(.service-open) #resultList,.portal-grid>.clickable-service:not(.service-open) #findIdPanel{display:none!important}
+.portal-grid>.clickable-service.service-open{grid-column:1/-1;cursor:default;border-color:#8bbcff}
+.portal-grid>.clickable-service.service-open:hover{transform:none}
+.portal-grid>.clickable-service .corner-action{position:absolute;top:12px;right:12px;display:block;padding:4px 8px;border:1px solid #b9d4ff;border-radius:8px;background:#eef5ff;z-index:2}
+.portal-grid>.clickable-service .corner-action .find-id-link{margin:0;text-decoration:none;font-size:.78rem}
+.portal-grid>.clickable-service:not(.service-open) .section-title{padding-right:115px}
+.portal-grid>.clickable-service .service-detail-hidden{display:none!important}
+.portal-grid>.clickable-service.service-open .service-detail-hidden{display:block}
+@media print{body.print-registration .portal-grid>.registration-card,body.print-admit .portal-grid>.clickable-service{display:block!important}}
