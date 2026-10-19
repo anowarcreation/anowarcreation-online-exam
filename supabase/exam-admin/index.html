@@ -1,0 +1,77 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin Access | Anowar Creation</title>
+  <link rel="stylesheet" href="../assets/exam/style.css">
+<link rel="stylesheet" href="../assets/exam/admin-dark.css">
+<link rel="icon" type="image/png" href="../assets/exam/anowar-creation-logo.png"></head>
+
+<body>
+  <div class="wrap">
+    <header class="topbar">
+      <a href="../exam/portal.html">
+        <img class="brand"
+             src="../assets/exam/anowar-creation-logo.png"
+             alt="Anowar Creation">
+      </a>
+      <a href="../exam/portal.html">Student portal ↗</a>
+    </header>
+
+    <main style="max-width:520px;margin:45px auto">
+      <section class="card">
+        <span class="eyebrow">RESTRICTED AREA</span>
+
+        <h1 class="section-title" style="margin-top:14px">
+          Administrator sign in
+        </h1>
+
+        <p class="muted">
+          Access to exam setup, question management,
+          student records, results and analytics.
+        </p>
+
+        <form id="adminLogin">
+          <div class="field">
+            <label for="adminEmail">Admin email</label>
+            <input id="adminEmail"
+                   type="email"
+                   autocomplete="username"
+                   placeholder="Admin email"
+                   required>
+          </div>
+
+          <div class="field">
+            <label for="adminPassword">Password</label>
+            <input id="adminPassword"
+                   type="password"
+                   autocomplete="current-password"
+                   placeholder="Enter password"
+                   required>
+          </div>
+
+          <p id="adminMsg" role="alert" aria-live="polite"></p>
+
+          <button id="adminSubmit" type="submit"
+                  style="width:100%">
+            Sign in
+          </button>
+        </form>
+
+        <div class="note" style="margin-top:18px">
+          Restricted access for authorized administrators only.
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      Anowar Creation · Admin portal
+    </footer>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="../assets/exam/admin.js"></script>
+</body>
+</html>

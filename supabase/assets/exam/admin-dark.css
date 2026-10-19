@@ -1,0 +1,19 @@
+/* Anowar Creation Admin Panel — dark theme, scoped to /exam-admin/ */
+:root{color-scheme:dark;--bg:#080d18;--panel:#101a2b;--panel2:#142238;--line:#263852;--text:#edf4ff;--muted:#9fb0ca;--blue:#3984ff;--blue2:#1d63db;--good:#22c995;--warn:#f6bd4b}
+html,body{background:radial-gradient(ellipse at 12% 0%,#142849 0,transparent 42%),var(--bg)!important;color:var(--text)!important;min-height:100%}
+body .wrap{max-width:1440px}
+.topbar{background:rgba(10,17,31,.88)!important;border:1px solid var(--line)!important;border-radius:18px;padding:12px 18px;box-shadow:0 12px 35px #0003}
+.topbar a,.toplinks a{color:#b9d4ff}
+.pagehead{padding:28px 0 18px}.pagehead h1{color:#f4f8ff;letter-spacing:-.035em}.eyebrow{color:#72a9ff!important;letter-spacing:.12em}
+.muted,.small,.footer{color:var(--muted)!important}
+.card,.stat,.note,.portal-result{background:linear-gradient(145deg,rgba(20,34,56,.98),rgba(13,23,39,.98))!important;border:1px solid var(--line)!important;border-radius:18px!important;box-shadow:0 14px 36px #0002}
+.card{padding:22px}.section-title,h2,h3{color:#edf4ff!important}.stats{gap:14px}.stat{padding:20px}.stat strong{color:#70a7ff!important;font-size:1.8rem}.stat span{color:var(--muted)!important}
+input,select,textarea{background:#0a1424!important;color:#edf4ff!important;border:1px solid #304461!important;border-radius:10px!important}input:focus,select:focus,textarea:focus{outline:2px solid #3984ff66;border-color:var(--blue)!important}label{color:#c9d8ee!important}
+button,.btn{background:linear-gradient(135deg,var(--blue),var(--blue2))!important;color:white!important;border:1px solid #4d91ff!important;border-radius:10px!important;font-weight:700;box-shadow:0 6px 16px #145bd633}button:hover,.btn:hover{filter:brightness(1.08)}button.secondary,.secondary,.btn.ghost{background:#17263c!important;color:#d8e7ff!important;border:1px solid #334967!important;box-shadow:none}
+.tablewrap{border:1px solid var(--line);border-radius:12px;overflow:auto}table{background:#0d1727!important;color:var(--text)!important;border-collapse:collapse;width:100%}thead{background:#172840!important}th{color:#bcd5ff!important;font-weight:700}td,th{border-bottom:1px solid #25364e!important;padding:12px!important}tbody tr:nth-child(even){background:#101d30!important}tbody tr:hover{background:#172a45!important}
+.exam-toggle-row{background:#0c1728;border:1px solid var(--line);border-radius:12px;padding:12px}.toggle-button.off{background:#29384e!important;border-color:#40516a!important}.toggle-button.on{background:#087f60!important;border-color:#20bd91!important}
+.footer{border-top:1px solid var(--line);margin-top:28px;padding:20px 0}.pill{background:#172b48!important;color:#a8ccff!important;border:1px solid #29476d}
+a{color:#80b2ff}.card a{font-weight:600}
+@media(max-width:680px){.card{padding:16px}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.topbar{gap:10px}.pagehead{padding-top:20px}}
+
+.danger-button{background:linear-gradient(135deg,#e34b5f,#a91e38)!important;border:1px solid #ff7585!important;color:#fff!important}.danger-button:disabled{opacity:.55;cursor:wait}.attempt-select,#selectAllAttempts{width:18px;height:18px;accent-color:#3984ff;cursor:pointer}
