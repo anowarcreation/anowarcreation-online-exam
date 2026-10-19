@@ -1,18 +1,15 @@
-# Anowar Creation Online Exam — requested updates
+# Anowar Creation Online Exam — update notes
 
-## Included in this source update
-- `functions/exam-start/index.ts`: server-side lookup of the permanent Student ID in `ac_student_registry`; registered name is used instead of trusting the browser-supplied name. Deploy this Edge Function to block arbitrary IDs.
-- `functions/student-portal/index.ts`: separate `result` and `history` actions. A single result requires Student ID + exam code. History requires Student ID + registered phone + DOB. Both return stored question/answer review details.
-- `exam/portal.html` and `assets/exam/student-portal.js`: split Result and Exam History into separate options; show summary/details and a per-exam Details button on history; stop cross-filling forms; replace Biology-only hero caption with ALL SUBJECTS.
-- `assets/exam/style.css`: styling for the result/details view.
-- `exam-admin/dashboard.html` and `assets/exam/admin-dashboard.js`: admin forms to create exams by subject (each exam is a separate question set) and add questions with four options, correct option, topic, and optional explanation. New exams are created closed by default.
+This archive is based on the supplied source ZIP. Existing exam creation, question creation, exam control, exam attempt/result tables, and the current student portal scripts have been preserved.
 
-## Deployment checklist
-1. Back up the current GitHub repository before replacing files.
-2. Deploy the updated `exam-start` and `student-portal` Supabase Edge Functions. Ensure `EXAM_SUPABASE_KEY` is set as a server-side secret.
-3. Confirm tables `ac_student_registry`, `ac_exams`, `ac_exam_questions`, `ac_exam_attempts`, and `ac_exam_answers` match the existing application schema. This patch intentionally does not drop or recreate tables.
-4. Test with a real registered Student ID and an invalid random ID. The random ID must be rejected even with a valid exam code.
-5. Test Result with a correct and incorrect exam code; test History with correct and incorrect phone/DOB; verify saved question and answer data exists before expecting full review details.
+## Included in this update
+- Refreshed student landing-page copy and stats to be subject-neutral and more official/professional.
+- Modern landing-page visual polish while preserving Anowar Creation branding and the existing color palette.
+- Added an Admin Dashboard quick-access card navigation for Create Exam, Question Bank, Examinations, Student Results, Certificates, and Exam Settings. Each card jumps to its existing working section; no existing New Exam or Add Question form was removed.
+- Preserved the supplied `exam-start` function's server-side registry Student ID validation. It verifies the Student ID against `ac_student_registry` and uses the registered name, rather than trusting a name supplied by the browser.
+- Preserved the current Result / Exam History handlers and full question review rendering in `student-portal.js` and `functions/student-portal/index.ts`.
 
-## Admin subjects and question sets
-The added interface supports creating exams/question sets and adding questions one at a time. Bulk question import, question edit/delete, and subject editing after creation are not included in this update. The live `ac_*` table columns and admin INSERT RLS policies must match the payloads; the UI will show a database/policy error if they do not. Existing exams and questions are preserved.
+## Important limitations / deployment checklist
+This is not a claim that every requested feature is complete. The supplied codebase does not yet contain an authenticated admin student-management API/UI for editing registry records or assigning IDs to legacy attempts. The Student Portal options also still use the existing page's current layout/interaction model; the full separate-page refactor for every card has not been completed in this update. These need a follow-up implementation and live Supabase testing before deployment.
+
+Before deploying, compare the archive against your current GitHub version, keep a backup, and deploy Edge Functions separately. Test exam start with a valid ID, a fake ID, and a wrong exam code. Do not overwrite the live site until the tests pass.
