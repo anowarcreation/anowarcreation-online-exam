@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
     if (req.method === "GET") {
       const { data: exams, error } = await db.from("ac_exams")
         .select("id,title,subject,duration_minutes,positive_marks,negative_marks,pass_percentage,is_published,created_at")
-        .order("created_at", { ascending: false }).limit(1);
+        .order("is_published", { ascending: false }).order("created_at", { ascending: false }).limit(1);
       if (error) throw error;
       const exam = exams?.[0];
       if (!exam) return respond({ available: false });
@@ -33,26 +33,23 @@ Deno.serve(async (req) => {
     const rollNumber = studentId;
     const examCode = String(body.examCode ?? "").trim();
     if (!studentName || !studentId || !examCode) return respond({ error: "Enter your name, Student ID, and exam code." }, 400);
+    // Verify the permanent Student ID against the registration registry on the server.
+    const { data: registeredStudent, error: studentError } = await db.from("ac_student_registry")
+      .select("student_id,full_name,dob,phone").eq("student_id", studentId).maybeSingle();
+    if (studentError) throw studentError;
+    if (!registeredStudent) return respond({ error: "Student ID not found. Register first or check your Student ID." }, 403);
+    // Do not trust a name supplied by the browser; use the registered name.
+    const verifiedStudentName = registeredStudent.full_name;
     const hash = await sha256(examCode);
     const { data: exam, error: ee } = await db.from("ac_exams").select("id,title,subject,exam_code,duration_minutes,positive_marks,negative_marks,pass_percentage,is_published,instructions,exam_code_hash").eq("exam_code_hash", hash).maybeSingle();
     if (ee) throw ee;
     if (!exam) return respond({ error: "Invalid exam code." }, 401);
     if (!exam.is_published) return respond({ error: "This exam is currently closed. New responses are not being accepted." }, 403);
-    // Validate the permanent Student ID against the server-side registry. A valid exam
-    // code alone must never allow an arbitrary ID to start an attempt.
-    const { data: registeredStudent, error: studentError } = await db.from("ac_student_registry")
-      .select("student_id,full_name")
-      .eq("student_id", studentId)
-      .maybeSingle();
-    if (studentError) throw studentError;
-    if (!registeredStudent) return respond({ error: "Student ID not found. Register first or use Find Student ID." }, 401);
-    if (registeredStudent.full_name.trim().toLocaleLowerCase() !== studentName.toLocaleLowerCase())
-      return respond({ error: "Student name does not match this Student ID." }, 401);
     const now = new Date();
     const { data: questions, error: qe } = await db.from("ac_exam_questions").select("id,chapter,question_text,options,sort_order").eq("exam_id", exam.id).order("sort_order", { ascending: true });
     if (qe) throw qe;
     if (!questions?.length) return respond({ error: "No questions are available for this exam." }, 409);
-    const { data: attempt, error: ae } = await db.from("ac_exam_attempts").insert({ exam_id: exam.id, student_name: studentName, roll_number: rollNumber, started_at: now.toISOString(), status: "in_progress" }).select("id,exam_id,started_at,status").single();
+    const { data: attempt, error: ae } = await db.from("ac_exam_attempts").insert({ exam_id: exam.id, student_name: verifiedStudentName, roll_number: registeredStudent.student_id, started_at: now.toISOString(), status: "in_progress" }).select("id,exam_id,started_at,status").single();
     if (ae) throw ae;
     return respond({ attempt, exam: { id: exam.id, title: exam.title, subject: exam.subject, exam_code: exam.exam_code || examCode, duration_minutes: exam.duration_minutes, positive_marks: exam.positive_marks, negative_marks: exam.negative_marks, pass_percentage: exam.pass_percentage, instructions: exam.instructions || "" }, questions });
   } catch (error) { console.error("exam-start failed", error); return respond({ error: "Unable to start exam. Please try again or contact the administrator." }, 500); }

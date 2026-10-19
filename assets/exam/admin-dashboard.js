@@ -37,6 +37,7 @@
     const select = $("controlExam"); if (!select) return;
     select.innerHTML = exams.length ? exams.map(e => `<option value="${esc(e.id)}">${esc(e.title)} (${e.is_published ? "Open" : "Closed"})</option>`).join("") : '<option value="">No exams found</option>';
     if (exams.length) fillExamControl(exams[0].id);
+    const qsel = $("questionExam"); if (qsel) qsel.innerHTML = exams.length ? exams.map(e => `<option value="${esc(e.id)}">${esc(e.subject)} — ${esc(e.title)}</option>`).join("") : '<option value="">Create an exam first</option>';
   }
   function fillExamControl(id) {
     const e = examsCache.find(x => x.id === id); if (!e) return;
@@ -138,6 +139,22 @@
       message("controlStatus", "Saved. New attempts and student duration overview now use these settings after the updated exam-start function is deployed.");
     } catch (err) { message("controlStatus", `Could not save settings: ${err.message || "check SQL migration and admin update RLS policy"}`); }
     finally { button.disabled = false; }
+  });
+
+  $("createExamForm")?.addEventListener("submit", async e => {
+    e.preventDefault(); message("createExamStatus", "Creating examination…");
+    const title=$("newExamTitle").value.trim(), subject=$("newExamSubject").value.trim(), code=$("newExamCode").value.trim();
+    const duration=Number($("newExamDuration").value), positive=Number($("newExamPositive").value), negative=Number($("newExamNegative").value), pass=Number($("newExamPass").value);
+    if(!title||!subject||!code||!Number.isInteger(duration)||duration<1||duration>600||pass<0||pass>100){message("createExamStatus","Check the required fields and values.");return;}
+    try { const codeHash=await sha256(code); const {error}=await client.from("ac_exams").insert({title,subject,exam_code:code,exam_code_hash:codeHash,duration_minutes:duration,positive_marks:positive,negative_marks:negative,pass_percentage:pass,is_published:false}); if(error)throw error; message("createExamStatus","Exam / question set created and left CLOSED. Add questions, then publish it from exam controls."); e.currentTarget.reset(); await loadData(); }
+    catch(err){message("createExamStatus",`Could not create exam: ${err.message||"Check ac_exams columns and admin INSERT RLS policy."}`);}
+  });
+  $("addQuestionForm")?.addEventListener("submit", async e => {
+    e.preventDefault(); message("addQuestionStatus","Adding question…");
+    const exam_id=$("questionExam").value, question_text=$("questionText").value.trim(), options=[0,1,2,3].map(i=>$("questionOption"+i).value.trim()), correct_option=Number($("correctOption").value), chapter=$("questionChapter").value.trim(), explanation=$("questionExplanation").value.trim();
+    if(!exam_id||!question_text||options.some(x=>!x)){message("addQuestionStatus","Choose an exam and complete the question and all four options.");return;}
+    try { const {data:existing,error:ce}=await client.from("ac_exam_questions").select("sort_order").eq("exam_id",exam_id).order("sort_order",{ascending:false}).limit(1);if(ce)throw ce;const sort_order=(existing?.[0]?.sort_order??0)+1;const {error}=await client.from("ac_exam_questions").insert({exam_id,question_text,options,correct_option,chapter,explanation,sort_order});if(error)throw error;message("addQuestionStatus","Question added successfully to this set.");e.currentTarget.reset(); }
+    catch(err){message("addQuestionStatus",`Could not add question: ${err.message||"Check ac_exam_questions columns and admin INSERT RLS policy."}`);}
   });
 
   function selectedAttemptIds() { return [...document.querySelectorAll(".attempt-select:checked")].map(x => x.value); }
