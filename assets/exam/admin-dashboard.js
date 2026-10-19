@@ -76,6 +76,7 @@
     const { data: profile, error: profileError } = await client.from("admin_profiles").select("role").eq("user_id", userData.user.id).maybeSingle();
     if (profileError || !profile || !["admin", "exam_manager"].includes(profile.role)) { await client.auth.signOut(); location.replace("index.html"); return; }
     await loadData();
+    await loadRegistry();
   }
   async function loadData() {
     const [examsResult, attemptsResult] = await Promise.all([
@@ -120,8 +121,9 @@
       const certReady = passed && Boolean(a.certificate_no);
       const resultPill = a.result === "PASS" ? '<span class="tag correct">PASS</span>' : a.result === "FAIL" ? '<span class="tag wrong">FAIL</span>' : `<span class="tag unanswered">${esc(a.result)}</span>`;
       const certificate = certReady ? `<a class="btn secondary admin-cert-link" href="certificate-admin.html?attempt=${encodeURIComponent(a.id)}">View certificate</a>` : passed ? '<span class="muted small">Awaiting server issue</span>' : '<span class="muted small">Not eligible</span>';
-      return `<tr><td><input class="attempt-select" type="checkbox" value="${esc(a.id)}" aria-label="Select attempt ${esc(a.id)}"></td><td>${esc(a.student_name)}</td><td>${esc(a.roll_number)}</td><td>${esc(a.exam_title)}</td><td>${a.score == null ? "—" : `${esc(a.score)} / ${esc(a.max_marks || "—")}`}</td><td>${a.percentage == null ? "—" : `${a.percentage.toFixed(1)}%`}</td><td>${resultPill}</td><td>${certificate}</td><td>${esc(a.submitted_at ? new Date(a.submitted_at).toLocaleString() : "Not submitted")}</td></tr>`;
+      return `<tr><td><input class="attempt-select" type="checkbox" value="${esc(a.id)}" aria-label="Select attempt ${esc(a.id)}"></td><td>${esc(a.student_name)}</td><td>${esc(a.roll_number)}</td><td>${esc(a.exam_title)}</td><td>${a.score == null ? "—" : `${esc(a.score)} / ${esc(a.max_marks || "—")}`}</td><td>${a.percentage == null ? "—" : `${a.percentage.toFixed(1)}%`}</td><td>${resultPill}</td><td>${certificate}</td><td>${esc(a.submitted_at ? new Date(a.submitted_at).toLocaleString() : "Not submitted")}<br><button type="button" class="secondary assign-attempt-student" data-attempt="${esc(a.id)}">Assign Student ID</button></td></tr>`;
     }).join("") : '<tr><td colspan="9">No student attempts have been recorded yet.</td></tr>';
+    document.querySelectorAll(".assign-attempt-student").forEach(btn=>btn.addEventListener("click",async()=>{const attempt=attemptsCache.find(x=>x.id===btn.dataset.attempt);if(!attempt)return;const studentId=prompt("Enter the permanent Student ID to assign to this past attempt:");if(!studentId)return;try{const {data:student,error:se}=await client.from("ac_student_registry").select("student_id,full_name").eq("student_id",studentId.trim()).maybeSingle();if(se)throw se;if(!student)throw new Error("Student ID not found. Register the student first.");const {error}=await client.from("ac_exam_attempts").update({roll_number:student.student_id,student_name:student.full_name}).eq("id",attempt.id);if(error)throw error;message("resultStatus","Student ID assigned to this attempt.");await loadData();}catch(err){message("resultStatus",`Could not assign Student ID: ${err.message||"check admin update policy on ac_exam_attempts"}`);}}));
     message("resultStatus", `${attemptsCache.length} attempt(s) loaded; ${submitted.length} submitted. Pass/fail is calculated from the exam pass threshold and available marks data.`);
   }
   $("controlExam")?.addEventListener("change", e => fillExamControl(e.target.value));
@@ -185,5 +187,22 @@ Type ${phrase} to confirm.`);
 
   $("adminLogout")?.addEventListener("click", async () => { await client?.auth.signOut(); location.replace("index.html"); });
   $("exportResults")?.addEventListener("click", () => csvDownload(exportRows));
+
+  // Student registry manager: admin-only access is already enforced by init() profile check.
+  let registryCache = [];
+  function renderRegistry(filter="") {
+    const body=$("adminRegistryRows"); if(!body)return;
+    const f=filter.trim().toLowerCase(); const rows=registryCache.filter(s=>[s.full_name,s.student_id,s.phone].some(v=>String(v||"").toLowerCase().includes(f)));
+    body.innerHTML=rows.length?rows.map(s=>`<tr><td>${esc(s.full_name)}</td><td>${esc(s.student_id)}</td><td>${esc(s.dob)}</td><td>${esc(s.phone)}</td><td><button type="button" class="secondary edit-student" data-id="${esc(s.id)}">View / Edit</button></td></tr>`).join(""):'<tr><td colspan="5">No registered students found.</td></tr>';
+    body.querySelectorAll(".edit-student").forEach(btn=>btn.addEventListener("click",()=>{const s=registryCache.find(x=>x.id===btn.dataset.id);if(!s)return;$("studentEditPanel").classList.remove("hidden");$("editStudentRowId").value=s.id;$("editStudentName").value=s.full_name||"";$("editStudentId").value=s.student_id||"";$("editStudentDob").value=s.dob||"";$("editStudentPhone").value=s.phone||"";$("studentEditPanel").scrollIntoView({behavior:"smooth",block:"start"});}));
+  }
+  async function loadRegistry(){const body=$("adminRegistryRows");if(!body)return;const {data,error}=await client.from("ac_student_registry").select("id,student_id,full_name,dob,phone,created_at").order("created_at",{ascending:false}).limit(1000);if(error){body.innerHTML='<tr><td colspan="5">Could not load students. Check student registry migration and admin permissions.</td></tr>';message("studentManageStatus",error.message);return;}registryCache=data||[];renderRegistry($("studentSearch")?.value||"");message("studentManageStatus",`${registryCache.length} registered student record(s) loaded.`);}
+  $("studentSearch")?.addEventListener("input",e=>renderRegistry(e.target.value));
+  $("cancelStudentEdit")?.addEventListener("click",()=>$("studentEditPanel").classList.add("hidden"));
+  $("studentEditForm")?.addEventListener("submit",async e=>{e.preventDefault();message("studentManageStatus","Saving student details…");const id=$("editStudentRowId").value;const payload={full_name:$("editStudentName").value.trim(),student_id:$("editStudentId").value.trim(),dob:$("editStudentDob").value,phone:$("editStudentPhone").value.trim().replace(/[\s()-]/g,"")};if(!payload.full_name||!payload.student_id||!payload.dob||payload.phone.replace(/\D/g,"").length<10){message("studentManageStatus","Enter valid student details.");return;}try{const {error}=await client.from("ac_student_registry").update(payload).eq("id",id);if(error)throw error;message("studentManageStatus","Student details updated. Historical attempts are preserved; use the matching Student ID for history lookup.");$("studentEditPanel").classList.add("hidden");await loadRegistry();}catch(err){message("studentManageStatus",`Could not update student: ${err.message||"check unique ID/phone constraints and RLS policy"}`);}});
+  $("adminGlobalSearch")?.addEventListener("input",e=>{const q=e.target.value.toLowerCase();if($("studentSearch")){$("studentSearch").value=q;renderRegistry(q);}document.querySelectorAll("#adminExamRows tr").forEach(r=>r.hidden=!r.textContent.toLowerCase().includes(q));document.querySelectorAll("#adminStudentRows tr").forEach(r=>r.hidden=!r.textContent.toLowerCase().includes(q));});
+
+  const originalLoadData=loadData;
+  const loadDataWithRegistry=async()=>{await originalLoadData();await loadRegistry();};
   init().catch(() => { message("examStatus", "Unable to load the dashboard. Please sign in again or check the database permissions."); });
 })();

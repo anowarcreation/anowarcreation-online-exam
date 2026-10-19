@@ -46,3 +46,6 @@ supabase functions deploy verify-certificate
 ```
 
 Before deploying, ensure the project secret `EXAM_SUPABASE_KEY` is set to the privileged server key. Never put it in client-side files. Also run `supabase/migration-auto-certificates-admin.sql` in SQL Editor before deploying.
+
+
+Security note: deploy the updated `exam-start` function together with `student-portal` and apply `student-portal-migration.sql`. `exam-start` now rejects unregistered Student IDs and uses the registered name as the canonical attempt name.
