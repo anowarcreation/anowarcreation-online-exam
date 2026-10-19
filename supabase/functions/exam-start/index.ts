@@ -33,12 +33,6 @@ Deno.serve(async (req) => {
     const rollNumber = studentId;
     const examCode = String(body.examCode ?? "").trim();
     if (!studentName || !studentId || !examCode) return respond({ error: "Enter your name, Student ID, and exam code." }, 400);
-    // A valid exam code alone is not enough: require a real registered Student ID.
-    const { data: registeredStudent, error: studentError } = await db.from("ac_student_registry")
-      .select("student_id,full_name").eq("student_id", studentId).maybeSingle();
-    if (studentError) throw studentError;
-    if (!registeredStudent) return respond({ error: "Student ID was not found. Register first or use Find Student ID." }, 401);
-    const canonicalStudentName = registeredStudent.full_name;
     const hash = await sha256(examCode);
     const { data: exam, error: ee } = await db.from("ac_exams").select("id,title,subject,exam_code,duration_minutes,positive_marks,negative_marks,pass_percentage,is_published,instructions,exam_code_hash").eq("exam_code_hash", hash).maybeSingle();
     if (ee) throw ee;
@@ -48,7 +42,7 @@ Deno.serve(async (req) => {
     const { data: questions, error: qe } = await db.from("ac_exam_questions").select("id,chapter,question_text,options,sort_order").eq("exam_id", exam.id).order("sort_order", { ascending: true });
     if (qe) throw qe;
     if (!questions?.length) return respond({ error: "No questions are available for this exam." }, 409);
-    const { data: attempt, error: ae } = await db.from("ac_exam_attempts").insert({ exam_id: exam.id, student_name: canonicalStudentName, roll_number: registeredStudent.student_id, started_at: now.toISOString(), status: "in_progress" }).select("id,exam_id,started_at,status").single();
+    const { data: attempt, error: ae } = await db.from("ac_exam_attempts").insert({ exam_id: exam.id, student_name: studentName, roll_number: rollNumber, started_at: now.toISOString(), status: "in_progress" }).select("id,exam_id,started_at,status").single();
     if (ae) throw ae;
     return respond({ attempt, exam: { id: exam.id, title: exam.title, subject: exam.subject, exam_code: exam.exam_code || examCode, duration_minutes: exam.duration_minutes, positive_marks: exam.positive_marks, negative_marks: exam.negative_marks, pass_percentage: exam.pass_percentage, instructions: exam.instructions || "" }, questions });
   } catch (error) { console.error("exam-start failed", error); return respond({ error: "Unable to start exam. Please try again or contact the administrator." }, 500); }
