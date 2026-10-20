@@ -24,3 +24,10 @@ body{background:#f3f7ff!important;color:#172b4d!important}
 .student-profile-grid p{padding:12px;background:#f3f7ff;border:1px solid #e0e9f6;border-radius:9px;margin:0}
 @media(max-width:800px){.student-profile-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:520px){.student-profile-grid{grid-template-columns:1fr}}
+/* Strong readable table contrast and compact professional action controls */
+.admin-content .tablewrap tbody tr:nth-child(odd) td{background:#ffffff!important;color:#203754!important}
+.admin-content .tablewrap tbody tr:nth-child(even) td{background:#f0f6ff!important;color:#203754!important}
+.admin-content .tablewrap tbody tr:hover td{background:#e4efff!important;color:#17345f!important}
+.admin-content td button{padding:8px 12px;font-size:12px;white-space:nowrap}
+.admin-content button.danger-button{background:linear-gradient(120deg,#dc3545,#b91c3a)!important}
+.admin-content .section-title{letter-spacing:-.02em}

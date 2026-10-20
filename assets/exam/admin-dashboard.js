@@ -80,7 +80,7 @@
   }
   async function loadData() {
     const [examsResult, attemptsResult] = await Promise.all([
-      client.from("ac_exams").select("id,title,subject,exam_code,duration_minutes,instructions,positive_marks,negative_marks,pass_percentage,is_published,created_at").order("created_at", {ascending:false}),
+      client.from("ac_exams").select("id,title,subject,set_number,exam_code,duration_minutes,instructions,positive_marks,negative_marks,pass_percentage,is_published,created_at").order("created_at", {ascending:false}),
       client.from("ac_exam_attempts").select("id,exam_id,student_name,roll_number,score,status,submitted_at,started_at,created_at,certificate_no,correct_count,wrong_count,unanswered_count,ac_exams(title,subject,duration_minutes,positive_marks,negative_marks,pass_percentage)").order("created_at", {ascending:false}).limit(500)
     ]);
     if (examsResult.error) {
@@ -91,7 +91,7 @@
       const exams = examsResult.data || [];
       examsCache = exams; populateExamControl(exams);
       $("examCount").textContent = String(exams.length);
-      $("adminExamRows").innerHTML = exams.length ? exams.map(e => `<tr><td>${esc(e.title)}</td><td>${esc(e.subject)}</td><td>${e.exam_code ? esc(e.exam_code) : "Set in control panel"}</td><td>${esc(e.duration_minutes)} min</td><td>${e.is_published ? "Accepting attempts" : "Closed"}</td></tr>`).join("") : '<tr><td colspan="5">No examinations have been created yet.</td></tr>';
+      $("adminExamRows").innerHTML = exams.length ? exams.map(e => `<tr><td>${esc(e.title)}</td><td>${esc(e.subject)} · Set ${esc(e.set_number||1)}</td><td>${e.exam_code ? esc(e.exam_code) : "Set in control panel"}</td><td>${esc(e.duration_minutes)} min</td><td>${e.is_published ? "Accepting attempts" : "Closed"}</td><td><button type="button" class="edit-exam" data-id="${esc(e.id)}">Edit</button></td></tr>`).join("") : '<tr><td colspan="5">No examinations have been created yet.</td></tr>';
       message("examStatus", exams.length ? `${exams.length} examination record(s) loaded.` : "No examination records are available yet.");
     }
     if (attemptsResult.error) {
@@ -145,16 +145,16 @@
   $("createExamForm")?.addEventListener("submit", async e => {
     e.preventDefault(); const form=e.currentTarget; message("createExamStatus", "Creating examination…");
     const title=$("newExamTitle").value.trim(), subject=$("newExamSubject").value.trim(), code=$("newExamCode").value.trim();
-    const duration=Number($("newExamDuration").value), positive=Number($("newExamPositive").value), negative=Number($("newExamNegative").value), pass=Number($("newExamPass").value);
-    if(!title||!subject||!code||!Number.isInteger(duration)||duration<1||duration>600||pass<0||pass>100){message("createExamStatus","Check the required fields and values.");return;}
-    try { const codeHash=await sha256(code); const {error}=await client.from("ac_exams").insert({title,subject,exam_code:code,exam_code_hash:codeHash,duration_minutes:duration,positive_marks:positive,negative_marks:negative,pass_percentage:pass,is_published:false}); if(error)throw error; message("createExamStatus","Exam / question set created and left CLOSED. Add questions, then publish it from exam controls."); form.reset(); await loadData(); }
+    const duration=Number($("newExamDuration").value), set_number=Number($("newExamSetNumber")?.value||1), positive=Number($("newExamPositive").value), negative=Number($("newExamNegative").value), pass=Number($("newExamPass").value);
+    if(!title||!subject||!code||!Number.isInteger(set_number)||set_number<1||set_number>99||!Number.isInteger(duration)||duration<1||duration>600||pass<0||pass>100){message("createExamStatus","Check the required fields and values.");return;}
+    try { const codeHash=await sha256(code); const {error}=await client.from("ac_exams").insert({title,subject,set_number,exam_code:code,exam_code_hash:codeHash,duration_minutes:duration,positive_marks:positive,negative_marks:negative,pass_percentage:pass,is_published:false}); if(error)throw error; message("createExamStatus","Exam / question set created and left CLOSED. Add questions, then publish it from exam controls."); form.reset(); if($("newExamSetNumber")) $("newExamSetNumber").value="1"; await loadData(); }
     catch(err){message("createExamStatus",`Could not create exam: ${err.message||"Check ac_exams columns and admin INSERT RLS policy."}`);}
   });
   $("addQuestionForm")?.addEventListener("submit", async e => {
     e.preventDefault(); const form=e.currentTarget; message("addQuestionStatus","Adding question…");
     const exam_id=$("questionExam").value, question_text=$("questionText").value.trim(), options=[0,1,2,3].map(i=>$("questionOption"+i).value.trim()), correct_option=Number($("correctOption").value), chapter=$("questionChapter").value.trim(), explanation=$("questionExplanation").value.trim();
     if(!exam_id||!question_text||options.some(x=>!x)){message("addQuestionStatus","Choose an exam and complete the question and all four options.");return;}
-    try { const {data:existing,error:ce}=await client.from("ac_exam_questions").select("sort_order").eq("exam_id",exam_id).order("sort_order",{ascending:false}).limit(1);if(ce)throw ce;const sort_order=(existing?.[0]?.sort_order??0)+1;const {error}=await client.from("ac_exam_questions").insert({exam_id,question_text,options,correct_option,chapter,explanation,sort_order});if(error)throw error;message("addQuestionStatus","Question added successfully to this set.");form.reset(); }
+    try { const {data:existing,error:ce}=await client.from("ac_exam_questions").select("sort_order").eq("exam_id",exam_id).order("sort_order",{ascending:false}).limit(1);if(ce)throw ce;const sort_order=(existing?.[0]?.sort_order??0)+1;const {error}=await client.from("ac_exam_questions").insert({exam_id,question_text,options,correct_option,chapter,explanation,sort_order});if(error)throw error;message("addQuestionStatus","Question added successfully to this set.");form.reset(); await loadQuestionList(); }
     catch(err){message("addQuestionStatus",`Could not add question: ${err.message||"Check ac_exam_questions columns and admin INSERT RLS policy."}`);}
   });
 
@@ -244,8 +244,21 @@ Their saved answers and linked certificates will also be deleted. Student regist
       const pick=(r,keys)=>{const k=Object.keys(r).find(x=>keys.includes(x.toLowerCase().replace(/[^a-z0-9]/g,"")));return k===undefined?"":r[k];};
       const {data:last,error:le}=await client.from("ac_exam_questions").select("sort_order").eq("exam_id",exam_id).order("sort_order",{ascending:false}).limit(1);if(le)throw le;let order=(last?.[0]?.sort_order??0)+1;
       const payload=rows.map((r,i)=>{const question_text=String(pick(r,["question","questiontext","questionname"])).trim();const options=[pick(r,["optiona","a"]),pick(r,["optionb","b"]),pick(r,["optionc","c"]),pick(r,["optiond","d"])].map(x=>String(x).trim());let c=String(pick(r,["correctoption","correctanswer","answer","correct"])).trim().toUpperCase();const map={A:0,B:1,C:2,D:3,"0":0,"1":1,"2":2,"3":3};if(!question_text||options.some(x=>!x)||map[c]===undefined)throw Error(`Row ${i+2}: missing question/options or invalid Correct Option.`);return {exam_id,question_text,options,correct_option:map[c],chapter:String(pick(r,["chapter","topic"])).trim(),explanation:String(pick(r,["explanation","solution"])).trim(),sort_order:order++};});
-      for(let i=0;i<payload.length;i+=100){const {error}=await client.from("ac_exam_questions").insert(payload.slice(i,i+100));if(error)throw error;}message("bulkImportStatus",`${payload.length} question(s) imported into the selected set.`,true);
+      for(let i=0;i<payload.length;i+=100){const {error}=await client.from("ac_exam_questions").insert(payload.slice(i,i+100));if(error)throw error;}message("bulkImportStatus",`${payload.length} question(s) imported into the selected set.`,true); await loadQuestionList();
     }catch(err){message("bulkImportStatus",`Import failed: ${err.message||"Check file columns and question table permissions."}`);}finally{btn.disabled=false;}
   });
-  init().catch(() => { message("examStatus", "Unable to load the dashboard. Please sign in again or check the database permissions."); });
+
+  async function loadQuestionList(){
+    const examId=$("questionExam")?.value, body=$("questionListRows"); if(!body)return; if(!examId){body.innerHTML='<tr><td colspan="5">Choose a question set.</td></tr>';return;}
+    message("questionListStatus","Loading questions…");
+    try{const {data,error}=await client.from("ac_exam_questions").select("id,question_text,options,correct_option,chapter,explanation,sort_order").eq("exam_id",examId).order("sort_order",{ascending:true});if(error)throw error;body.innerHTML=(data||[]).length?data.map((q,i)=>`<tr><td>${i+1}</td><td>${esc(q.question_text)}</td><td>${esc(q.chapter||"—")}</td><td>${["A","B","C","D"][Number(q.correct_option)]||esc(q.correct_option)}</td><td><button type="button" class="edit-question" data-id="${esc(q.id)}" data-question="${encodeURIComponent(JSON.stringify(q))}">Edit</button> <button type="button" class="delete-question danger-button" data-id="${esc(q.id)}">Delete</button></td></tr>`).join(""):'<tr><td colspan="5">No questions in this set yet.</td></tr>';message("questionListStatus",`${(data||[]).length} question(s) in selected set.`);}catch(err){body.innerHTML='<tr><td colspan="5">Could not load questions.</td></tr>';message("questionListStatus",err.message||"Question list unavailable.");}
+  }
+  $("questionExam")?.addEventListener("change",loadQuestionList);
+  document.addEventListener("click",async event=>{
+    const editExam=event.target.closest(".edit-exam"); if(editExam){const exam=examsCache.find(x=>x.id===editExam.dataset.id);if(!exam)return;const title=prompt("Exam / set name:",exam.title);if(title===null)return;const subject=prompt("Subject:",exam.subject);if(subject===null)return;const set=prompt("Set number:",String(exam.set_number||1));if(set===null)return;const n=Number(set);if(!title.trim()||!subject.trim()||!Number.isInteger(n)||n<1||n>99){alert("Enter a valid name, subject and set number.");return;}try{const {error}=await client.from("ac_exams").update({title:title.trim(),subject:subject.trim(),set_number:n}).eq("id",exam.id);if(error)throw error;await loadData();alert("Exam details updated.");}catch(err){alert("Could not edit exam: "+err.message);}return;}
+    const eq=event.target.closest(".edit-question");if(eq){let q;try{q=JSON.parse(decodeURIComponent(eq.dataset.question));}catch{return;}const question_text=prompt("Question:",q.question_text);if(question_text===null)return;const options=[];for(let i=0;i<4;i++){const val=prompt(`Option ${String.fromCharCode(65+i)}:`,q.options?.[i]||"");if(val===null)return;options.push(val);}const answer=prompt("Correct option (A/B/C/D):",["A","B","C","D"][Number(q.correct_option)]||"A");if(answer===null)return;const correct_option={A:0,B:1,C:2,D:3}[answer.trim().toUpperCase()];if(correct_option===undefined||!question_text.trim()||options.some(x=>!x.trim())){alert("Please provide question, four options and correct option A/B/C/D.");return;}const chapter=prompt("Chapter/topic:",q.chapter||"");if(chapter===null)return;const explanation=prompt("Explanation:",q.explanation||"");if(explanation===null)return;try{const {error}=await client.from("ac_exam_questions").update({question_text:question_text.trim(),options,correct_option,chapter,explanation}).eq("id",q.id);if(error)throw error;await loadQuestionList();alert("Question updated.");}catch(err){alert("Could not update question: "+err.message);}return;}
+    const dq=event.target.closest(".delete-question");if(dq){if(!confirm("Delete this question permanently?"))return;try{const {error}=await client.from("ac_exam_questions").delete().eq("id",dq.dataset.id);if(error)throw error;await loadQuestionList();}catch(err){alert("Could not delete question: "+err.message);}}
+  });
+  document.addEventListener("click",event=>{if(event.target.closest(".edit-exam"))return;});
+  init().then(()=>loadQuestionList()).catch(() => { message("examStatus", "Unable to load the dashboard. Please sign in again or check the database permissions."); });
 })();
