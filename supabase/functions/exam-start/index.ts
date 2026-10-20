@@ -38,17 +38,17 @@ Deno.serve(async (req) => {
     // then select the published record instead of using maybeSingle() (which fails
     // when duplicate hashes exist). Fall back to exact code for legacy rows whose
     // hash was not populated or was not refreshed by an older admin version.
-    let { data: matches, error: ee } = await db.from("ac_exams")
-      .select("id,title,subject,exam_code,duration_minutes,positive_marks,negative_marks,pass_percentage,is_published,instructions,exam_code_hash,created_at")
+    const hashResult = await db.from("ac_exams")
+      .select("id,title,subject,exam_code,duration_minutes,positive_marks,negative_marks,pass_percentage,is_published,instructions,exam_code_hash,created_at,set_number")
       .eq("exam_code_hash", hash).order("created_at", { ascending: false });
-    if (ee) throw ee;
-    if (!matches?.length) {
-      const fallback = await db.from("ac_exams")
-        .select("id,title,subject,exam_code,duration_minutes,positive_marks,negative_marks,pass_percentage,is_published,instructions,exam_code_hash,created_at")
-        .eq("exam_code", examCode).order("created_at", { ascending: false });
-      if (fallback.error) throw fallback.error;
-      matches = fallback.data ?? [];
-    }
+    if (hashResult.error) throw hashResult.error;
+    const exactResult = await db.from("ac_exams")
+      .select("id,title,subject,exam_code,duration_minutes,positive_marks,negative_marks,pass_percentage,is_published,instructions,exam_code_hash,created_at,set_number")
+      .eq("exam_code", examCode).order("created_at", { ascending: false });
+    if (exactResult.error) throw exactResult.error;
+    const byId = new Map<string, any>();
+    for (const item of [...(hashResult.data ?? []), ...(exactResult.data ?? [])]) byId.set(String(item.id), item);
+    const matches = [...byId.values()].sort((a,b)=>String(b.created_at||"").localeCompare(String(a.created_at||"")));
     if (!matches?.length) return respond({ error: "Invalid exam code. Check the code and try again." }, 401);
     const publishedMatches = matches.filter((item: any) => item.is_published === true);
     if (!publishedMatches.length) return respond({ error: "This exam is currently closed. The administrator must publish the correct Subject + Set first." }, 403);
@@ -61,5 +61,5 @@ Deno.serve(async (req) => {
     const { data: attempt, error: ae } = await db.from("ac_exam_attempts").insert({ exam_id: exam.id, student_name: studentName, roll_number: rollNumber, started_at: now.toISOString(), status: "in_progress" }).select("id,exam_id,started_at,status").single();
     if (ae) throw ae;
     return respond({ attempt, exam: { id: exam.id, title: exam.title, subject: exam.subject, exam_code: exam.exam_code || examCode, duration_minutes: exam.duration_minutes, positive_marks: exam.positive_marks, negative_marks: exam.negative_marks, pass_percentage: exam.pass_percentage, instructions: exam.instructions || "" }, questions });
-  } catch (error) { console.error("exam-start failed", error); return respond({ error: "Unable to start exam. Please try again or contact the administrator." }, 500); }
+  } catch (error) { console.error("exam-start failed", error); return respond({ error: "Unable to start exam. Check that the latest exam-start function is deployed and its EXAM_SUPABASE_KEY secret is set correctly." }, 500); }
 });
