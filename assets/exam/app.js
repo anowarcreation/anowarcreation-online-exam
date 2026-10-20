@@ -264,6 +264,12 @@
       return;
     }
 
+    // The exam header must reflect the subject selected in Admin, not a hard-coded Biology label.
+    const subjectLabel = String(state.exam?.subject || state.exam?.title || "Online").trim();
+    const headerPill = document.querySelector(".topbar .pill");
+    if (headerPill) headerPill.textContent = `${subjectLabel} Examination`;
+    document.title = `${subjectLabel} Examination | Anowar Creation`;
+
     const questions = state.questions;
     const details = document.createElement("section");
     details.className = "student-exam-identity";
