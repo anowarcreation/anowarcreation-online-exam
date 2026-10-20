@@ -45,3 +45,14 @@ a{color:#80b2ff}.card a{font-weight:600}
   body .admin-shell{grid-template-columns:1fr;gap:14px}
   body .admin-sidebar{height:auto;min-height:0;position:static}
 }
+
+/* Readable, consistent light tables — no alternating dark rows. */
+.tablewrap table{background:#fff!important;color:#163154!important}
+.tablewrap thead{background:#eaf2ff!important}
+.tablewrap th{background:#eaf2ff!important;color:#21436f!important}
+.tablewrap tbody tr,.tablewrap tbody tr:nth-child(even){background:#fff!important;color:#163154!important}
+.tablewrap tbody tr:nth-child(even){background:#f3f7ff!important}
+.tablewrap tbody tr:hover{background:#e5efff!important}
+.tablewrap td{color:#163154!important;border-bottom:1px solid #d8e4f5!important}
+.tablewrap select{background:#fff!important;color:#163154!important;border:1px solid #c6d7ef!important}
+.tablewrap button{white-space:nowrap}

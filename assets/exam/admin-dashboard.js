@@ -143,18 +143,18 @@
   });
 
   $("createExamForm")?.addEventListener("submit", async e => {
-    e.preventDefault(); message("createExamStatus", "Creating examination…");
+    e.preventDefault(); const form=e.currentTarget; message("createExamStatus", "Creating examination…");
     const title=$("newExamTitle").value.trim(), subject=$("newExamSubject").value.trim(), code=$("newExamCode").value.trim();
     const duration=Number($("newExamDuration").value), positive=Number($("newExamPositive").value), negative=Number($("newExamNegative").value), pass=Number($("newExamPass").value);
     if(!title||!subject||!code||!Number.isInteger(duration)||duration<1||duration>600||pass<0||pass>100){message("createExamStatus","Check the required fields and values.");return;}
-    try { const codeHash=await sha256(code); const {error}=await client.from("ac_exams").insert({title,subject,exam_code:code,exam_code_hash:codeHash,duration_minutes:duration,positive_marks:positive,negative_marks:negative,pass_percentage:pass,is_published:false}); if(error)throw error; message("createExamStatus","Exam / question set created and left CLOSED. Add questions, then publish it from exam controls."); e.currentTarget.reset(); await loadData(); }
+    try { const codeHash=await sha256(code); const {error}=await client.from("ac_exams").insert({title,subject,exam_code:code,exam_code_hash:codeHash,duration_minutes:duration,positive_marks:positive,negative_marks:negative,pass_percentage:pass,is_published:false}); if(error)throw error; message("createExamStatus","Exam / question set created and left CLOSED. Add questions, then publish it from exam controls."); form.reset(); await loadData(); }
     catch(err){message("createExamStatus",`Could not create exam: ${err.message||"Check ac_exams columns and admin INSERT RLS policy."}`);}
   });
   $("addQuestionForm")?.addEventListener("submit", async e => {
-    e.preventDefault(); message("addQuestionStatus","Adding question…");
+    e.preventDefault(); const form=e.currentTarget; message("addQuestionStatus","Adding question…");
     const exam_id=$("questionExam").value, question_text=$("questionText").value.trim(), options=[0,1,2,3].map(i=>$("questionOption"+i).value.trim()), correct_option=Number($("correctOption").value), chapter=$("questionChapter").value.trim(), explanation=$("questionExplanation").value.trim();
     if(!exam_id||!question_text||options.some(x=>!x)){message("addQuestionStatus","Choose an exam and complete the question and all four options.");return;}
-    try { const {data:existing,error:ce}=await client.from("ac_exam_questions").select("sort_order").eq("exam_id",exam_id).order("sort_order",{ascending:false}).limit(1);if(ce)throw ce;const sort_order=(existing?.[0]?.sort_order??0)+1;const {error}=await client.from("ac_exam_questions").insert({exam_id,question_text,options,correct_option,chapter,explanation,sort_order});if(error)throw error;message("addQuestionStatus","Question added successfully to this set.");e.currentTarget.reset(); }
+    try { const {data:existing,error:ce}=await client.from("ac_exam_questions").select("sort_order").eq("exam_id",exam_id).order("sort_order",{ascending:false}).limit(1);if(ce)throw ce;const sort_order=(existing?.[0]?.sort_order??0)+1;const {error}=await client.from("ac_exam_questions").insert({exam_id,question_text,options,correct_option,chapter,explanation,sort_order});if(error)throw error;message("addQuestionStatus","Question added successfully to this set.");form.reset(); }
     catch(err){message("addQuestionStatus",`Could not add question: ${err.message||"Check ac_exam_questions columns and admin INSERT RLS policy."}`);}
   });
 
@@ -206,7 +206,33 @@ Their saved answers and linked certificates will also be deleted. Student regist
     try{const {data,error}=await client.from("ac_exam_attempts").select("id,student_name,roll_number,score,status,started_at,submitted_at,certificate_no,ac_exams(title,subject)").eq("roll_number",student.student_id).order("created_at",{ascending:false}).limit(300);if(error)throw error;panel.querySelector("h4").insertAdjacentHTML("afterend",(data||[]).length?`<div class="tablewrap"><table><thead><tr><th>Exam</th><th>Subject</th><th>Exam Date</th><th>Score</th><th>Status</th><th>Certificate</th></tr></thead><tbody>${data.map(a=>`<tr><td>${esc(a.ac_exams?.title||"—")}</td><td>${esc(a.ac_exams?.subject||"—")}</td><td>${esc(a.submitted_at?new Date(a.submitted_at).toLocaleString():a.started_at?new Date(a.started_at).toLocaleString():"—")}</td><td>${esc(a.score??"—")}</td><td>${esc(a.status||"—")}</td><td>${esc(a.certificate_no||"—")}</td></tr>`).join("")}</tbody></table></div>`:'<p>No exam history found for this Student ID.</p>');panel.querySelector("p.muted.small").textContent=`Registered ${student.created_at?new Date(student.created_at).toLocaleDateString():"date unavailable"}. History is matched using the Student ID.`;}
     catch(err){panel.querySelector("h4").insertAdjacentHTML("afterend",`<p class="error">Could not load exam history: ${esc(err.message)}</p>`);}
   }
-  function renderRegisteredStudents(){const q=($("studentSearch")?.value||"").toLowerCase();const list=(window.__acStudents||[]).filter(s=>[s.full_name,s.student_id,s.phone].some(v=>String(v||"").toLowerCase().includes(q)));$("registeredStudentRows").innerHTML=list.length?list.map(s=>`<tr><td>${esc(s.full_name)}</td><td>${esc(s.student_id)}</td><td>${esc(s.dob)}</td><td>${esc(s.phone)}</td><td>${esc(s.created_at?new Date(s.created_at).toLocaleDateString():"—")}</td><td><button type="button" class="edit-student" data-id="${esc(s.id)}">View / Edit</button></td></tr>`).join(""):'<tr><td colspan="6">No registered students found.</td></tr>';document.querySelectorAll(".edit-student").forEach(b=>b.addEventListener("click",()=>{const s=(window.__acStudents||[]).find(x=>x.id===b.dataset.id);if(!s)return;$("editStudentRowId").value=s.id;$("editStudentName").value=s.full_name;$("editStudentId").value=s.student_id;$("editStudentDob").value=s.dob;$("editStudentPhone").value=s.phone;message("studentEditStatus","Editing "+s.full_name);loadOneStudentHistory(s);}));document.querySelectorAll(".assign-student-id").forEach(b=>b.addEventListener("click",async()=>{const id=b.dataset.attempt,sel=document.querySelector(`.legacy-student-select[data-attempt="${id}"]`);if(!sel?.value){alert("Choose a registered student first.");return;}if(!confirm("Assign this Student ID to the selected past attempt?"))return;const {error}=await client.from("ac_exam_attempts").update({roll_number:sel.value,student_name:(window.__acStudents||[]).find(s=>s.student_id===sel.value)?.full_name||undefined}).eq("id",id);if(error){alert("Could not assign Student ID: "+error.message);return;}await loadData();await loadRegisteredStudents();}));}
+  function renderRegisteredStudents(){const q=($("studentSearch")?.value||"").toLowerCase();const list=(window.__acStudents||[]).filter(s=>[s.full_name,s.student_id,s.phone].some(v=>String(v||"").toLowerCase().includes(q)));$("registeredStudentRows").innerHTML=list.length?list.map(s=>`<tr><td>${esc(s.full_name)}</td><td>${esc(s.student_id)}</td><td>${esc(s.dob)}</td><td>${esc(s.phone)}</td><td>${esc(s.created_at?new Date(s.created_at).toLocaleDateString():"—")}</td><td><button type="button" class="edit-student" data-id="${esc(s.id)}">View / Edit</button></td></tr>`).join(""):'<tr><td colspan="6">No registered students found.</td></tr>';document.querySelectorAll(".edit-student").forEach(b=>b.addEventListener("click",()=>{const s=(window.__acStudents||[]).find(x=>x.id===b.dataset.id);if(!s)return;$("editStudentRowId").value=s.id;$("editStudentName").value=s.full_name;$("editStudentId").value=s.student_id;$("editStudentDob").value=s.dob;$("editStudentPhone").value=s.phone;message("studentEditStatus","Editing "+s.full_name);loadOneStudentHistory(s);}));}
+  // Delegate assignment clicks: legacy rows are rendered after the registered-student table.
+  document.addEventListener("click", async event => {
+    const button = event.target.closest(".assign-student-id");
+    if (!button) return;
+    const id = button.dataset.attempt;
+    const row = button.closest("tr");
+    const select = row?.querySelector(".legacy-student-select");
+    const studentId = select?.value;
+    if (!studentId) { alert("Choose a registered student first."); return; }
+    const student = (window.__acStudents || []).find(s => s.student_id === studentId);
+    if (!student) { alert("Selected registered student could not be found. Refresh the page and try again."); return; }
+    if (!confirm(`Assign ${student.full_name} (${student.student_id}) to this exam attempt?`)) return;
+    button.disabled = true;
+    try {
+      const { data, error } = await client.from("ac_exam_attempts")
+        .update({ roll_number: student.student_id, student_name: student.full_name })
+        .eq("id", id).select("id,roll_number,student_name").maybeSingle();
+      if (error) throw error;
+      if (!data) throw new Error("No attempt was updated. Check the admin UPDATE policy for ac_exam_attempts.");
+      message("studentRegistryStatus", `Assigned ${student.student_id} to the selected attempt.`);
+      await loadData();
+      await loadRegisteredStudents();
+    } catch (err) {
+      alert("Could not assign Student ID: " + (err.message || "Check Supabase permissions."));
+    } finally { button.disabled = false; }
+  });
   $("studentSearch")?.addEventListener("input",renderRegisteredStudents);
   $("cancelStudentEdit")?.addEventListener("click",()=>{$("studentEditForm").reset();$("editStudentRowId").value="";message("studentEditStatus","");});
   $("studentEditForm")?.addEventListener("submit",async e=>{e.preventDefault();const id=$("editStudentRowId").value;if(!id){message("studentEditStatus","Select a student using View / Edit first.");return;}const payload={full_name:$("editStudentName").value.trim(),student_id:$("editStudentId").value.trim(),dob:$("editStudentDob").value,phone:$("editStudentPhone").value.trim()};try{const {error}=await client.from("ac_student_registry").update(payload).eq("id",id);if(error)throw error;message("studentEditStatus","Student details updated.");await loadRegisteredStudents();}catch(err){message("studentEditStatus",err.message||"Update failed. Check admin RLS permissions.");}});
