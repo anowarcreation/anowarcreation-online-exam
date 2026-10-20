@@ -33,25 +33,40 @@
     const certNo = a.certificate_no || a.certificates?.certificate_no || "";
     return {...a, exam_title:exam.title || "—", max_marks:max, percentage, result, certificate_no:certNo};
   }
+  function subjectLabel(exam) { return String(exam.subject || exam.title || "Untitled subject").trim(); }
+  function setLabel(exam) { return `Set ${Number(exam.set_number || 1)}`; }
+  function fillSetSelect(subjectSelectId, setSelectId, hiddenExamId, selectedId) {
+    const subjectSelect=$(subjectSelectId), setSelect=$(setSelectId), hidden=$(hiddenExamId);
+    if(!subjectSelect||!setSelect||!hidden)return;
+    const subject=subjectSelect.value;
+    const matches=examsCache.filter(e=>subjectLabel(e)===subject).sort((a,b)=>Number(a.set_number||1)-Number(b.set_number||1));
+    setSelect.innerHTML=matches.length?matches.map(e=>`<option value="${esc(e.id)}">${esc(setLabel(e))}${e.is_published?' · Published':' · Closed'}</option>`).join(""):'<option value="">No sets created for this subject</option>';
+    if(selectedId && matches.some(e=>e.id===selectedId)) setSelect.value=selectedId;
+    hidden.innerHTML=matches.length?matches.map(e=>`<option value="${esc(e.id)}">${esc(e.title)}</option>`).join(""):'<option value="">No matching set</option>';
+    hidden.value=setSelect.value||"";
+    return hidden.value;
+  }
   function populateExamControl(exams) {
-    const select = $("controlExam"); if (!select) return;
-    select.innerHTML = exams.length ? exams.map(e => `<option value="${esc(e.id)}">${esc(e.title)} (${e.is_published ? "Open" : "Closed"})</option>`).join("") : '<option value="">No exams found</option>';
-    if (exams.length) fillExamControl(exams[0].id);
-    const qsel = $("questionExam");
-    if (qsel) qsel.innerHTML = exams.length ? exams.map(e => `<option value="${esc(e.id)}">${esc(e.subject)} — Set ${esc(e.set_number || 1)} — ${esc(e.title)}</option>`).join("") : '<option value="">Create an exam first</option>';
-    const subj = $("questionSubjectFilter");
-    if (subj) { const names = [...new Set(exams.map(e => String(e.subject || "").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b)); const prior=subj.value; subj.innerHTML=names.length?names.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join(""):'<option value="">Create a subject first</option>'; if(names.includes(prior))subj.value=prior; }
-    const setFilter=$("questionSetFilter"); if(setFilter && qsel && qsel.value){const selected=exams.find(e=>e.id===qsel.value);if(selected)setFilter.value=String(selected.set_number||1);}
-    syncQuestionSetSelectors();
+    const subjects=[...new Set(exams.map(subjectLabel))].sort((a,b)=>a.localeCompare(b));
+    const cs=$("controlSubject"), qs=$("questionSubject");
+    if(cs){cs.innerHTML=subjects.length?subjects.map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join(""):'<option value="">No subjects found</option>';}
+    if(qs){qs.innerHTML=subjects.length?subjects.map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join(""):'<option value="">No subjects found</option>';}
+    if(subjects.length){
+      fillSetSelect("controlSubject","controlSetNumber","controlExam");
+      fillSetSelect("questionSubject","questionSetNumber","questionExam");
+      const controlId=$("controlExam")?.value; if(controlId)fillExamControl(controlId);
+    }
   }
   function fillExamControl(id) {
     const e = examsCache.find(x => x.id === id); if (!e) return;
+    if($("controlSubject")) $("controlSubject").value=subjectLabel(e);
+    fillSetSelect("controlSubject","controlSetNumber","controlExam",id);
     $("controlCode").value = e.exam_code || "";
     $("controlDuration").value = e.duration_minutes || 30;
     $("controlInstructions").value = e.instructions || "";
     $("controlPublished").checked = Boolean(e.is_published);
     syncPublishedToggle();
-    message("controlStatus", "Changes are not saved yet.");
+    message("controlStatus", "Selected subject and set. Changes are not saved yet.");
   }
   function syncPublishedToggle() {
     const checkbox = $("controlPublished"), button = $("controlPublishedToggle"), label = $("controlPublishedLabel");
@@ -130,7 +145,10 @@
     }).join("") : '<tr><td colspan="9">No student attempts have been recorded yet.</td></tr>';
     message("resultStatus", `${attemptsCache.length} attempt(s) loaded; ${submitted.length} submitted. Pass/fail is calculated from the exam pass threshold and available marks data.`);
   }
-  $("controlExam")?.addEventListener("change", e => fillExamControl(e.target.value));
+  $("controlSubject")?.addEventListener("change",()=>{const id=fillSetSelect("controlSubject","controlSetNumber","controlExam");if(id)fillExamControl(id);});
+  $("controlSetNumber")?.addEventListener("change",e=>fillExamControl(e.target.value));
+  $("questionSubject")?.addEventListener("change",()=>{fillSetSelect("questionSubject","questionSetNumber","questionExam");loadQuestionList();});
+  $("questionSetNumber")?.addEventListener("change",e=>{const hidden=$("questionExam");if(hidden)hidden.value=e.target.value;loadQuestionList();});
   $("examControlForm")?.addEventListener("submit", async e => {
     e.preventDefault();
     const id = $("controlExam").value, code = $("controlCode").value.trim(), duration = Number($("controlDuration").value);
@@ -152,7 +170,7 @@
     const title=$("newExamTitle").value.trim(), subject=$("newExamSubject").value.trim(), code=$("newExamCode").value.trim();
     const duration=Number($("newExamDuration").value), set_number=Number($("newExamSetNumber")?.value||1), positive=Number($("newExamPositive").value), negative=Number($("newExamNegative").value), pass=Number($("newExamPass").value);
     if(!title||!subject||!code||!Number.isInteger(set_number)||set_number<1||set_number>99||!Number.isInteger(duration)||duration<1||duration>600||pass<0||pass>100){message("createExamStatus","Check the required fields and values.");return;}
-    try { const codeHash=await sha256(code); const {error}=await client.from("ac_exams").insert({title,subject,set_number,exam_code:code,exam_code_hash:codeHash,duration_minutes:duration,positive_marks:positive,negative_marks:negative,pass_percentage:pass,is_published:false}); if(error)throw error; message("createExamStatus","Exam / question set created and left CLOSED. Add questions, then publish it from exam controls."); form.reset(); if($("newExamSetNumber")) $("newExamSetNumber").value="1"; await loadData(); }
+    try { const {data:dupe,error:dupeError}=await client.from("ac_exams").select("id,title").ilike("subject",subject).eq("set_number",set_number).limit(1); if(dupeError)throw dupeError; if(dupe?.length)throw new Error(`${subject} already has Set ${set_number}. Select that set to edit it, or choose another set number.`); const codeHash=await sha256(code); const {error}=await client.from("ac_exams").insert({title,subject,set_number,exam_code:code,exam_code_hash:codeHash,duration_minutes:duration,positive_marks:positive,negative_marks:negative,pass_percentage:pass,is_published:false}); if(error)throw error; message("createExamStatus","Subject + Set created and left CLOSED. Add questions, then publish the selected set from Exam Control."); form.reset(); if($("newExamSetNumber")) $("newExamSetNumber").value="1"; await loadData(); }
     catch(err){message("createExamStatus",`Could not create exam: ${err.message||"Check ac_exams columns and admin INSERT RLS policy."}`);}
   });
   $("addQuestionForm")?.addEventListener("submit", async e => {
@@ -253,22 +271,10 @@ Their saved answers and linked certificates will also be deleted. Student regist
     }catch(err){message("bulkImportStatus",`Import failed: ${err.message||"Check file columns and question table permissions."}`);}finally{btn.disabled=false;}
   });
 
-  function syncQuestionSetSelectors(){
-    const subj=$("questionSubjectFilter"), set=$("questionSetFilter"), qsel=$("questionExam");
-    if(!subj||!set||!qsel)return;
-    const subject=subj.value, setNo=Number(set.value||1);
-    const matching=examsCache.filter(e=>String(e.subject||"").trim()===subject && Number(e.set_number||1)===setNo);
-    const old=qsel.value;
-    qsel.innerHTML=matching.length?matching.map(e=>`<option value="${esc(e.id)}">${esc(e.subject)} — Set ${esc(e.set_number||1)} — ${esc(e.title)}</option>`).join(""):'<option value="">No exam record for this subject/set</option>';
-    if(matching.some(e=>e.id===old))qsel.value=old;
-    loadQuestionList();
-  }
-  $("questionSubjectFilter")?.addEventListener("change",syncQuestionSetSelectors);
-  $("questionSetFilter")?.addEventListener("change",syncQuestionSetSelectors);
   async function loadQuestionList(){
     const examId=$("questionExam")?.value, body=$("questionListRows"); if(!body)return; if(!examId){body.innerHTML='<tr><td colspan="5">Choose a question set.</td></tr>';return;}
     message("questionListStatus","Loading questions…");
-    try{const {data,error}=await client.from("ac_exam_questions").select("id,question_text,options,correct_option,chapter,explanation,sort_order").eq("exam_id",examId).order("sort_order",{ascending:true});if(error)throw error;body.innerHTML=(data||[]).length?data.map((q,i)=>{const opts=Array.isArray(q.options)?q.options:[];return `<tr><td>${i+1}</td><td class="question-cell">${esc(q.question_text)}</td><td>${esc(opts[0]||"—")}</td><td>${esc(opts[1]||"—")}</td><td>${esc(opts[2]||"—")}</td><td>${esc(opts[3]||"—")}</td><td><strong>${["A","B","C","D"][Number(q.correct_option)]||esc(q.correct_option)}</strong></td><td>${esc(q.chapter||"—")}</td><td><button type="button" class="edit-question" data-id="${esc(q.id)}">Edit</button> <button type="button" class="delete-question danger-button" data-id="${esc(q.id)}">Delete</button></td></tr>`;}).join(""):'<tr><td colspan="9">No questions in this set yet.</td></tr>';message("questionListStatus",`${(data||[]).length} question(s) in selected set.`);}catch(err){body.innerHTML='<tr><td colspan="5">Could not load questions.</td></tr>';message("questionListStatus",err.message||"Question list unavailable.");}
+    try{const {data,error}=await client.from("ac_exam_questions").select("id,question_text,options,correct_option,chapter,explanation,sort_order").eq("exam_id",examId).order("sort_order",{ascending:true});if(error)throw error;body.innerHTML=(data||[]).length?data.map((q,i)=>`<tr><td>${i+1}</td><td>${esc(q.question_text)}</td><td>${esc(q.chapter||"—")}</td><td>${["A","B","C","D"][Number(q.correct_option)]||esc(q.correct_option)}</td><td><button type="button" class="edit-question" data-id="${esc(q.id)}">Edit</button> <button type="button" class="delete-question danger-button" data-id="${esc(q.id)}">Delete</button></td></tr>`).join(""):'<tr><td colspan="5">No questions in this set yet.</td></tr>';message("questionListStatus",`${(data||[]).length} question(s) in selected set.`);}catch(err){body.innerHTML='<tr><td colspan="5">Could not load questions.</td></tr>';message("questionListStatus",err.message||"Question list unavailable.");}
   }
   $("questionExam")?.addEventListener("change",loadQuestionList);
   document.addEventListener("click",async event=>{
@@ -277,5 +283,5 @@ Their saved answers and linked certificates will also be deleted. Student regist
     const dq=event.target.closest(".delete-question");if(dq){if(!confirm("Delete this question permanently?"))return;try{const {error}=await client.from("ac_exam_questions").delete().eq("id",dq.dataset.id);if(error)throw error;await loadQuestionList();}catch(err){alert("Could not delete question: "+err.message);}}
   });
   document.addEventListener("click",event=>{if(event.target.closest(".edit-exam"))return;});
-  init().then(()=>{syncQuestionSetSelectors();loadQuestionList();}).catch(() => { message("examStatus", "Unable to load the dashboard. Please sign in again or check the database permissions."); });
+  init().then(()=>loadQuestionList()).catch(() => { message("examStatus", "Unable to load the dashboard. Please sign in again or check the database permissions."); });
 })();
