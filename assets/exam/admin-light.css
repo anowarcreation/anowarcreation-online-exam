@@ -1,0 +1,26 @@
+/* Light admin theme: preserve the existing sidebar/card layout while improving contrast. */
+:root{color-scheme:light}
+body{background:#f3f7ff!important;color:#172b4d!important}
+.admin-shell{background:transparent!important;gap:16px}
+.admin-sidebar,.admin-content,.admin-content .card,.admin-content .stat,.student-details-panel{background:#fff!important;color:#172b4d!important;border-color:#d9e4f5!important;box-shadow:0 8px 24px rgba(30,64,120,.07)}
+.admin-sidebar{background:linear-gradient(180deg,#fff,#eef5ff)!important}
+.admin-brand,.admin-menu a,.admin-content h1,.admin-content h2,.admin-content h3,.admin-content h4,.admin-content label,.admin-content th{color:#17345f!important}
+.admin-menu a{border-radius:10px}
+.admin-menu a.active{background:linear-gradient(120deg,#1769e8,#448cff)!important;color:#fff!important}
+.admin-menu a.active *{color:#fff!important}
+.admin-content p,.admin-content .muted,.admin-content small{color:#536987}
+.admin-content input,.admin-content select,.admin-content textarea{background:#fff!important;color:#172b4d!important;border:1px solid #cbd8ec!important;border-radius:9px}
+.admin-content button,.admin-content .btn{background:linear-gradient(120deg,#1769e8,#448cff);color:#fff;border:0;border-radius:9px;box-shadow:0 4px 12px rgba(23,105,232,.16)}
+.admin-content button.secondary{background:#edf4ff!important;color:#24518b!important;border:1px solid #cbdcf7!important;box-shadow:none}
+.admin-content button.danger-button{background:linear-gradient(120deg,#dc3545,#b91c3a)!important;color:#fff}
+.tablewrap{border:1px solid #d8e3f3;border-radius:10px;overflow:auto}
+.admin-content table{background:#fff;color:#17345f}
+.admin-content th{background:#edf4ff!important}
+.admin-content td{border-color:#e0e9f6!important;color:#203754}
+.admin-content tr:nth-child(even) td{background:#f8fbff}
+.admin-content .tag{color:#17345f}
+.bulk-import{padding:16px;margin:16px 0;background:#f5f9ff!important;border:1px solid #d9e6fa!important}
+.student-profile-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:16px 0}
+.student-profile-grid p{padding:12px;background:#f3f7ff;border:1px solid #e0e9f6;border-radius:9px;margin:0}
+@media(max-width:800px){.student-profile-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.student-profile-grid{grid-template-columns:1fr}}
