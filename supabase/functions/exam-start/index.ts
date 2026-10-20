@@ -34,10 +34,26 @@ Deno.serve(async (req) => {
     const examCode = String(body.examCode ?? "").trim();
     if (!studentName || !studentId || !examCode) return respond({ error: "Enter your name, Student ID, and exam code." }, 400);
     const hash = await sha256(examCode);
-    const { data: exam, error: ee } = await db.from("ac_exams").select("id,title,subject,exam_code,duration_minutes,positive_marks,negative_marks,pass_percentage,is_published,instructions,exam_code_hash").eq("exam_code_hash", hash).maybeSingle();
+    // A code may exist on older duplicate/closed records. Fetch matches as a list,
+    // then select the published record instead of using maybeSingle() (which fails
+    // when duplicate hashes exist). Fall back to exact code for legacy rows whose
+    // hash was not populated or was not refreshed by an older admin version.
+    let { data: matches, error: ee } = await db.from("ac_exams")
+      .select("id,title,subject,exam_code,duration_minutes,positive_marks,negative_marks,pass_percentage,is_published,instructions,exam_code_hash,created_at")
+      .eq("exam_code_hash", hash).order("created_at", { ascending: false });
     if (ee) throw ee;
-    if (!exam) return respond({ error: "Invalid exam code." }, 401);
-    if (!exam.is_published) return respond({ error: "This exam is currently closed. New responses are not being accepted." }, 403);
+    if (!matches?.length) {
+      const fallback = await db.from("ac_exams")
+        .select("id,title,subject,exam_code,duration_minutes,positive_marks,negative_marks,pass_percentage,is_published,instructions,exam_code_hash,created_at")
+        .eq("exam_code", examCode).order("created_at", { ascending: false });
+      if (fallback.error) throw fallback.error;
+      matches = fallback.data ?? [];
+    }
+    if (!matches?.length) return respond({ error: "Invalid exam code. Check the code and try again." }, 401);
+    const publishedMatches = matches.filter((item: any) => item.is_published === true);
+    if (!publishedMatches.length) return respond({ error: "This exam is currently closed. The administrator must publish the correct Subject + Set first." }, 403);
+    // If old duplicate records share a code, use the most recently created published record.
+    const exam = publishedMatches[0];
     const now = new Date();
     const { data: questions, error: qe } = await db.from("ac_exam_questions").select("id,chapter,question_text,options,sort_order").eq("exam_id", exam.id).order("sort_order", { ascending: true });
     if (qe) throw qe;
