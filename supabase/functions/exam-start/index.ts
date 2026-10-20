@@ -28,11 +28,16 @@ Deno.serve(async (req) => {
     }
     if (req.method !== "POST") return respond({ error: "GET or POST requests only." }, 405);
     const body = await req.json();
-    const studentName = String(body.studentName ?? "").trim().slice(0, 100);
     const studentId = String(body.studentId ?? body.rollNumber ?? "").trim().slice(0, 40);
     const rollNumber = studentId;
     const examCode = String(body.examCode ?? "").trim();
-    if (!studentName || !studentId || !examCode) return respond({ error: "Enter your name, Student ID, and exam code." }, 400);
+    if (!studentId || !examCode) return respond({ error: "Enter your Student ID and exam code." }, 400);
+    const { data: registeredStudent, error: studentError } = await db.from("ac_student_registry")
+      .select("student_id,full_name,dob,phone").eq("student_id", studentId).maybeSingle();
+    if (studentError) throw studentError;
+    if (!registeredStudent) return respond({ error: "Student ID not found. Register first or use Find Student ID." }, 404);
+    const studentName = String(registeredStudent.full_name || "").trim();
+    if (!studentName) return respond({ error: "Your registration has no name. Contact the administrator." }, 409);
     const hash = await sha256(examCode);
     // A code may exist on older duplicate/closed records. Fetch matches as a list,
     // then select the published record instead of using maybeSingle() (which fails
@@ -60,6 +65,6 @@ Deno.serve(async (req) => {
     if (!questions?.length) return respond({ error: "No questions are available for this exam." }, 409);
     const { data: attempt, error: ae } = await db.from("ac_exam_attempts").insert({ exam_id: exam.id, student_name: studentName, roll_number: rollNumber, started_at: now.toISOString(), status: "in_progress" }).select("id,exam_id,started_at,status").single();
     if (ae) throw ae;
-    return respond({ attempt, exam: { id: exam.id, title: exam.title, subject: exam.subject, exam_code: exam.exam_code || examCode, duration_minutes: exam.duration_minutes, positive_marks: exam.positive_marks, negative_marks: exam.negative_marks, pass_percentage: exam.pass_percentage, instructions: exam.instructions || "" }, questions });
+    return respond({ attempt, student: { name: registeredStudent.full_name, studentId: registeredStudent.student_id, dob: registeredStudent.dob, phone: registeredStudent.phone }, exam: { id: exam.id, title: exam.title, subject: exam.subject, exam_code: exam.exam_code || examCode, duration_minutes: exam.duration_minutes, positive_marks: exam.positive_marks, negative_marks: exam.negative_marks, pass_percentage: exam.pass_percentage, instructions: exam.instructions || "" }, questions });
   } catch (error) { console.error("exam-start failed", error); return respond({ error: "Unable to start exam. Check that the latest exam-start function is deployed and its EXAM_SUPABASE_KEY secret is set correctly." }, 500); }
 });

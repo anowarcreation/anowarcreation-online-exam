@@ -121,9 +121,6 @@
         'button[type="submit"]'
       );
 
-      const studentName =
-        $("#studentName")?.value.trim() || "";
-
       const studentId =
         $("#studentId")?.value.trim() || "";
 
@@ -132,10 +129,10 @@
 
       if (errorBox) errorBox.textContent = "";
 
-      if (!studentName || !studentId || !examCode) {
+      if (!studentId || !examCode) {
         if (errorBox) {
           errorBox.textContent =
-            "Please complete all fields.";
+            "Enter your Student ID and Exam Code.";
         }
         return;
       }
@@ -149,7 +146,6 @@
 
       try {
         const data = await callFunction(START_URL, {
-          studentName,
           studentId,
           rollNumber: studentId,
           examCode
@@ -168,9 +164,11 @@
 
         setState({
           student: {
-            name: studentName,
+            name: data.student?.name || data.student?.full_name || "Registered Student",
             roll: studentId,
-            studentId
+            studentId,
+            dob: data.student?.dob || "",
+            phone: data.student?.phone || ""
           },
           attempt: data.attempt,
           exam: data.exam,
@@ -221,7 +219,7 @@
 
     if (greeting) {
       greeting.textContent =
-        `Student: ${state.student.name} • Roll: ${state.student.roll}`;
+        `Student: ${state.student.name} • DOB: ${state.student.dob || "—"} • Student ID: ${state.student.studentId} • Registered Phone: ${state.student.phone || "—"}`;
     }
     const duration = Number(state.exam?.duration_minutes || 30);
     const totalQuestions = state.questions.length;
@@ -267,6 +265,11 @@
     }
 
     const questions = state.questions;
+    const details = document.createElement("section");
+    details.className = "student-exam-identity";
+    details.innerHTML = `<strong>${escapeHtml(state.student.name || "Registered Student")}</strong><span>DOB: ${escapeHtml(state.student.dob || "—")}</span><span>Student ID: ${escapeHtml(state.student.studentId || state.student.roll || "—")}</span><span>Registered Phone: ${escapeHtml(state.student.phone || "—")}</span>`;
+    const shell = document.querySelector(".exam-shell");
+    if (shell) shell.parentNode.insertBefore(details, shell);
 
     const durationSeconds = Math.max(
       60,
