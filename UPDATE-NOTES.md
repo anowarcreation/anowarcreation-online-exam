@@ -16,3 +16,10 @@
 
 ## Admin subjects and question sets
 The added interface supports creating exams/question sets and adding questions one at a time. Bulk question import, question edit/delete, and subject editing after creation are not included in this update. The live `ac_*` table columns and admin INSERT RLS policies must match the payloads; the UI will show a database/policy error if they do not. Existing exams and questions are preserved.
+
+
+## Notice Board optional action button (v2)
+- Admin has a toggle to show/hide the student-facing “Click here” button.
+- The destination URL field is visible and required only when the toggle is ON. If OFF, the saved URL is cleared and the button stays hidden on the student portal.
+- Student portal reads `button_enabled` and a valid HTTP(S) URL before displaying the button.
+- The SQL migration is an upgrade-safe `ALTER TABLE` for existing installs and preserves existing notice rows.

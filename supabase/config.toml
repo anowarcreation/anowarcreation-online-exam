@@ -1,0 +1,2 @@
+[functions.special-exam-api]
+verify_jwt = false
