@@ -14,3 +14,86 @@ html[data-admin-theme="dark"] .card,html[data-admin-theme="dark"] .stat,html[dat
 html[data-admin-theme="dark"] p,html[data-admin-theme="dark"] .muted,html[data-admin-theme="dark"] .small,html[data-admin-theme="dark"] .footer,html[data-admin-theme="dark"] .nb-status,html[data-admin-theme="dark"] .nb-help{color:#b8c9e2!important}
 html[data-admin-theme="dark"] input,html[data-admin-theme="dark"] select,html[data-admin-theme="dark"] textarea{background:#0a1424!important;color:#edf4ff!important;border-color:#304461!important}
 html[data-admin-theme="dark"] .nb-ticker-preview{background:#0a1424!important}
+
+
+/* v7: enforce readable contrast for all admin text, including inline-styled notice board labels/help. */
+html[data-admin-theme="light"] body,
+html[data-admin-theme="light"] .wrap,
+html[data-admin-theme="light"] .admin-content,
+html[data-admin-theme="light"] .nb-shell,
+html[data-admin-theme="light"] .nb-card,
+html[data-admin-theme="light"] .nb-admin-card { color:#172b4d!important; }
+html[data-admin-theme="light"] .admin-content p,
+html[data-admin-theme="light"] .admin-content span,
+html[data-admin-theme="light"] .admin-content small,
+html[data-admin-theme="light"] .admin-content strong,
+html[data-admin-theme="light"] .admin-content em,
+html[data-admin-theme="light"] .admin-content li,
+html[data-admin-theme="light"] .admin-content td,
+html[data-admin-theme="light"] .admin-content th,
+html[data-admin-theme="light"] .admin-content label,
+html[data-admin-theme="light"] .admin-content legend,
+html[data-admin-theme="light"] .admin-content summary,
+html[data-admin-theme="light"] .nb-card p,
+html[data-admin-theme="light"] .nb-card label,
+html[data-admin-theme="light"] .nb-card strong,
+html[data-admin-theme="light"] .nb-card small,
+html[data-admin-theme="light"] .nb-card .nb-help,
+html[data-admin-theme="light"] .nb-card .nb-status { color:#263b59!important; }
+html[data-admin-theme="light"] .admin-content h1,
+html[data-admin-theme="light"] .admin-content h2,
+html[data-admin-theme="light"] .admin-content h3,
+html[data-admin-theme="light"] .admin-content h4,
+html[data-admin-theme="light"] .nb-card h2 { color:#102b53!important; }
+html[data-admin-theme="light"] .admin-content input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
+html[data-admin-theme="light"] .admin-content select,
+html[data-admin-theme="light"] .admin-content textarea,
+html[data-admin-theme="light"] .nb-card input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
+html[data-admin-theme="light"] .nb-card select,
+html[data-admin-theme="light"] .nb-card textarea { background:#fff!important;color:#172b4d!important;border-color:#bdcde3!important; }
+html[data-admin-theme="light"] input::placeholder,
+html[data-admin-theme="light"] textarea::placeholder { color:#65758c!important;opacity:1!important; }
+html[data-admin-theme="light"] .admin-content a:not(.btn),
+html[data-admin-theme="light"] .nb-card a:not(.btn) { color:#1459b8!important; }
+
+html[data-admin-theme="dark"] body,
+html[data-admin-theme="dark"] .wrap,
+html[data-admin-theme="dark"] .admin-content,
+html[data-admin-theme="dark"] .nb-shell,
+html[data-admin-theme="dark"] .nb-card,
+html[data-admin-theme="dark"] .nb-admin-card { color:#edf4ff!important; }
+html[data-admin-theme="dark"] .admin-content p,
+html[data-admin-theme="dark"] .admin-content span,
+html[data-admin-theme="dark"] .admin-content small,
+html[data-admin-theme="dark"] .admin-content strong,
+html[data-admin-theme="dark"] .admin-content em,
+html[data-admin-theme="dark"] .admin-content li,
+html[data-admin-theme="dark"] .admin-content td,
+html[data-admin-theme="dark"] .admin-content th,
+html[data-admin-theme="dark"] .admin-content label,
+html[data-admin-theme="dark"] .admin-content legend,
+html[data-admin-theme="dark"] .admin-content summary,
+html[data-admin-theme="dark"] .nb-card p,
+html[data-admin-theme="dark"] .nb-card label,
+html[data-admin-theme="dark"] .nb-card strong,
+html[data-admin-theme="dark"] .nb-card small,
+html[data-admin-theme="dark"] .nb-card .nb-help,
+html[data-admin-theme="dark"] .nb-card .nb-status { color:#d5e2f6!important; }
+html[data-admin-theme="dark"] .admin-content h1,
+html[data-admin-theme="dark"] .admin-content h2,
+html[data-admin-theme="dark"] .admin-content h3,
+html[data-admin-theme="dark"] .admin-content h4,
+html[data-admin-theme="dark"] .nb-card h2 { color:#f2f7ff!important; }
+html[data-admin-theme="dark"] .admin-content input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
+html[data-admin-theme="dark"] .admin-content select,
+html[data-admin-theme="dark"] .admin-content textarea,
+html[data-admin-theme="dark"] .nb-card input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
+html[data-admin-theme="dark"] .nb-card select,
+html[data-admin-theme="dark"] .nb-card textarea { background:#0a1424!important;color:#f2f7ff!important;border-color:#3b506c!important; }
+html[data-admin-theme="dark"] input::placeholder,
+html[data-admin-theme="dark"] textarea::placeholder { color:#aabbd2!important;opacity:1!important; }
+html[data-admin-theme="dark"] .admin-content a:not(.btn),
+html[data-admin-theme="dark"] .nb-card a:not(.btn) { color:#9ec5ff!important; }
+
+/* Never allow hidden placeholders or controls to occupy layout space. */
+[hidden] { display:none!important; }
