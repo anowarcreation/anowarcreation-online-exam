@@ -56,3 +56,5 @@ a{color:#80b2ff}.card a{font-weight:600}
 .tablewrap td{color:#163154!important;border-bottom:1px solid #d8e4f5!important}
 .tablewrap select{background:#fff!important;color:#163154!important;border:1px solid #c6d7ef!important}
 .tablewrap button{white-space:nowrap}
+
+.admin-menu a{display:flex;align-items:center;gap:11px;min-height:46px;box-sizing:border-box;white-space:normal;overflow-wrap:anywhere;line-height:1.25;font-weight:750}.admin-menu-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 24px;width:24px;height:24px;border-radius:7px;background:#ffffff12;color:#b9d7ff;font-size:1rem;line-height:1}.admin-menu a span:last-child{min-width:0}

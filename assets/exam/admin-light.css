@@ -31,3 +31,6 @@ body{background:#f3f7ff!important;color:#172b4d!important}
 .admin-content td button{padding:8px 12px;font-size:12px;white-space:nowrap}
 .admin-content button.danger-button{background:linear-gradient(120deg,#dc3545,#b91c3a)!important}
 .admin-content .section-title{letter-spacing:-.02em}
+
+/* Uniform admin navigation labels and icon alignment */
+.admin-menu{gap:7px!important}.admin-menu a{display:flex!important;align-items:center;gap:11px;min-height:46px;padding:10px 12px!important;box-sizing:border-box;font-size:.88rem;line-height:1.25;font-weight:750;white-space:normal;overflow-wrap:anywhere}.admin-menu-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 24px;width:24px;height:24px;border-radius:7px;background:#eaf2ff;color:#2166c6;font-size:1rem;line-height:1}.admin-menu a.active .admin-menu-icon,.admin-menu a:hover .admin-menu-icon{background:#ffffff2b;color:#fff}.admin-menu a span:last-child{min-width:0}
